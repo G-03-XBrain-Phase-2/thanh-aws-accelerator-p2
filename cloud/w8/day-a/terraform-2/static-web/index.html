@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Article Details</title>
+  <style>
+    :root {
+      --bg: #f6f7f4;
+      --surface: #ffffff;
+      --text: #1f2933;
+      --muted: #667085;
+      --line: #d8ded4;
+      --brand: #0f766e;
+      --brand-dark: #134e4a;
+      --accent: #b45309;
+      --shadow: 0 18px 45px rgba(31, 41, 51, 0.12);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      color: var(--text);
+      background: var(--bg);
+      line-height: 1.65;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .site-header {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.92);
+      backdrop-filter: blur(12px);
+    }
+
+    .nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 14px 20px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 800;
+      letter-spacing: 0;
+    }
+
+    .brand-mark {
+      display: grid;
+      width: 36px;
+      height: 36px;
+      place-items: center;
+      border-radius: 8px;
+      color: #ffffff;
+      background: var(--brand);
+      font-weight: 900;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 18px;
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .hero {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 48px 20px 20px;
+    }
+
+    .hero-inner {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr);
+      gap: 34px;
+      align-items: center;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border: 1px solid rgba(15, 118, 110, 0.22);
+      border-radius: 999px;
+      color: var(--brand-dark);
+      background: rgba(15, 118, 110, 0.08);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    h1 {
+      max-width: 760px;
+      margin: 18px 0 16px;
+      font-size: clamp(34px, 5vw, 58px);
+      line-height: 1.05;
+      letter-spacing: 0;
+    }
+
+    .subtitle {
+      max-width: 670px;
+      margin: 0;
+      color: var(--muted);
+      font-size: 18px;
+    }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 24px;
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .meta span {
+      padding: 7px 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+    }
+
+    .hero-image {
+      min-height: 330px;
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      background:
+        linear-gradient(rgba(14, 38, 44, 0.12), rgba(14, 38, 44, 0.3)),
+        url("https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=1200&q=80");
+      background-position: center;
+      background-size: cover;
+    }
+
+    .page {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 300px;
+      gap: 30px;
+      max-width: 1120px;
+      margin: 22px auto 56px;
+      padding: 0 20px;
+    }
+
+    article,
+    .sidebar-card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+      box-shadow: 0 10px 30px rgba(31, 41, 51, 0.06);
+    }
+
+    article {
+      padding: 34px;
+    }
+
+    article h2 {
+      margin: 30px 0 10px;
+      color: var(--brand-dark);
+      font-size: 25px;
+      line-height: 1.25;
+    }
+
+    article h2:first-child {
+      margin-top: 0;
+    }
+
+    article p {
+      margin: 0 0 16px;
+    }
+
+    .quote {
+      margin: 26px 0;
+      padding: 20px;
+      border-left: 5px solid var(--accent);
+      border-radius: 0 8px 8px 0;
+      background: #fff7ed;
+      color: #7c2d12;
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .content-list {
+      padding-left: 20px;
+    }
+
+    .content-list li {
+      margin-bottom: 9px;
+    }
+
+    .sidebar {
+      display: grid;
+      gap: 18px;
+      align-content: start;
+    }
+
+    .sidebar-card {
+      padding: 20px;
+    }
+
+    .sidebar-card h3 {
+      margin: 0 0 12px;
+      color: var(--brand-dark);
+      font-size: 18px;
+    }
+
+    .toc {
+      display: grid;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .author {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .avatar {
+      display: grid;
+      width: 48px;
+      height: 48px;
+      flex: 0 0 auto;
+      place-items: center;
+      border-radius: 50%;
+      color: #ffffff;
+      background: var(--brand-dark);
+      font-weight: 900;
+    }
+
+    .author strong,
+    .author span {
+      display: block;
+    }
+
+    .author span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      min-height: 44px;
+      margin-top: 14px;
+      border-radius: 8px;
+      color: #ffffff;
+      background: var(--brand);
+      font-weight: 800;
+    }
+
+    .tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .tag {
+      padding: 6px 9px;
+      border-radius: 999px;
+      color: var(--brand-dark);
+      background: rgba(15, 118, 110, 0.1);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .site-footer {
+      border-top: 1px solid var(--line);
+      padding: 22px 20px;
+      color: var(--muted);
+      text-align: center;
+      background: #ffffff;
+    }
+
+    @media (max-width: 860px) {
+      .hero-inner,
+      .page {
+        grid-template-columns: 1fr;
+      }
+
+      .hero {
+        padding-top: 30px;
+      }
+
+      .hero-image {
+        min-height: 250px;
+      }
+
+      article {
+        padding: 24px;
+      }
+
+      .nav-links {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <nav class="nav" aria-label="Main navigation">
+      <a class="brand" href="#">
+        <span class="brand-mark">A</span>
+        <span>Article Lab</span>
+      </a>
+      <div class="nav-links">
+        <a href="#">Articles</a>
+        <a href="#">Topics</a>
+        <a href="#">About</a>
+      </div>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="hero-inner">
+        <div>
+          <span class="eyebrow">Cloud learning</span>
+          <h1>Building a static website with Amazon S3 and Terraform</h1>
+          <p class="subtitle">
+            A clean test page for checking your S3 static website hosting, bucket policy,
+            and uploaded HTML assets.
+          </p>
+          <div class="meta">
+            <span>By Thanh</span>
+            <span>June 2, 2026</span>
+            <span>6 min read</span>
+          </div>
+        </div>
+        <div class="hero-image" role="img" aria-label="Workspace with laptop and notes"></div>
+      </div>
+    </section>
+
+    <div class="page">
+      <article>
+        <h2 id="overview">Overview</h2>
+        <p>
+          This article page is made to test a static website hosted on Amazon S3.
+          It uses only HTML and CSS, so it can run without a server, build step, or JavaScript.
+        </p>
+        <p>
+          When the page loads from your S3 website endpoint, it means your bucket website
+          configuration and object upload are working.
+        </p>
+
+        <div class="quote">
+          Static websites are a great first step for learning how cloud storage, permissions,
+          and infrastructure as code fit together.
+        </div>
+
+        <h2 id="terraform">Terraform setup</h2>
+        <p>
+          In this lesson, Terraform creates the S3 bucket, enables website configuration,
+          and attaches a bucket policy that allows visitors to read website files.
+        </p>
+        <ul class="content-list">
+          <li><strong>Bucket:</strong> stores static files such as HTML, CSS, images, and JavaScript.</li>
+          <li><strong>Website configuration:</strong> defines the index and error documents.</li>
+          <li><strong>Bucket policy:</strong> allows public read access for website objects.</li>
+        </ul>
+
+        <h2 id="testing">Testing checklist</h2>
+        <p>
+          After applying Terraform, upload this file to the bucket and open it through
+          the S3 static website endpoint.
+        </p>
+        <ul class="content-list">
+          <li>The page should show the header, large title, image, article content, and sidebar.</li>
+          <li>The layout should become one column on mobile screens.</li>
+          <li>If you get access denied, check Block Public Access and the bucket policy.</li>
+        </ul>
+
+        <h2 id="next">Next steps</h2>
+        <p>
+          You can add an `index.html`, an `error.html`, and a small assets folder.
+          Then use Terraform or AWS CLI to upload the whole folder into the S3 bucket.
+        </p>
+      </article>
+
+      <aside class="sidebar" aria-label="Article sidebar">
+        <section class="sidebar-card">
+          <h3>Author</h3>
+          <div class="author">
+            <div class="avatar">T</div>
+            <div>
+              <strong>Thanh</strong>
+              <span>AWS and Terraform learner</span>
+            </div>
+          </div>
+          <a class="button" href="#">Follow article</a>
+        </section>
+
+        <section class="sidebar-card">
+          <h3>Contents</h3>
+          <div class="toc">
+            <a href="#overview">Overview</a>
+            <a href="#terraform">Terraform setup</a>
+            <a href="#testing">Testing checklist</a>
+            <a href="#next">Next steps</a>
+          </div>
+        </section>
+
+        <section class="sidebar-card">
+          <h3>Tags</h3>
+          <div class="tags">
+            <span class="tag">AWS</span>
+            <span class="tag">S3</span>
+            <span class="tag">Terraform</span>
+            <span class="tag">Static Web</span>
+          </div>
+        </section>
+      </aside>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    Article details test page for S3 static website hosting.
+  </footer>
+</body>
+</html>
