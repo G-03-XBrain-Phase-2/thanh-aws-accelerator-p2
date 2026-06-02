@@ -1,0 +1,6 @@
+{
+  "recommendations": [
+    "hashicorp.terraform",
+    "ms-vscode-remote.remote-wsl"
+  ]
+}
