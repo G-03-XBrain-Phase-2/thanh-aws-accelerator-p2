@@ -1,0 +1,12 @@
+namespace: prod
+namePrefix: prod-
+
+resources:
+  - ../../base
+
+patchesStrategicMerge:
+  - configmap-patch.yaml
+  - deployment-patch.yaml
+
+commonLabels:
+  environment: prod

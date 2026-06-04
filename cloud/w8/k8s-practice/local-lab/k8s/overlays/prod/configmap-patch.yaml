@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: k8s-local-lab-config
+data:
+  APP_VERSION: "prod"
+  MESSAGE: "Hello from production environment"

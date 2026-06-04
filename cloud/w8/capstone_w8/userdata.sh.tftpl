@@ -1,0 +1,50 @@
+#!/bin/bash
+set -euxo pipefail
+
+dnf update -y
+dnf install -y docker conntrack
+
+systemctl enable --now docker
+usermod -aG docker ec2-user
+
+curl -Lo /usr/local/bin/kubectl https://dl.k8s.io/release/v1.30.0/bin/linux/amd64/kubectl
+chmod +x /usr/local/bin/kubectl
+
+curl -Lo /usr/local/bin/minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+chmod +x /usr/local/bin/minikube
+
+mkdir -p /opt/demo/app /opt/demo/k8s
+
+cat > /opt/demo/app/server.js <<'EOF'
+${server_js}
+EOF
+
+cat > /opt/demo/app/package.json <<'EOF'
+${package_json}
+EOF
+
+cat > /opt/demo/app/Dockerfile <<'EOF'
+${dockerfile}
+EOF
+
+cat > /opt/demo/k8s/deployment.yaml <<'EOF'
+${deployment_yaml}
+EOF
+
+cat > /opt/demo/k8s/service.yaml <<'EOF'
+${service_yaml}
+EOF
+
+chown -R ec2-user:ec2-user /opt/demo
+
+sudo -iu ec2-user bash <<'EOF'
+set -euxo pipefail
+
+minikube start --driver=docker --ports=30080:30080 --memory=1800mb --cpus=2
+
+docker build -t demo-app:v1 /opt/demo/app
+minikube image load demo-app:v1
+
+kubectl apply -f /opt/demo/k8s/
+kubectl rollout status deployment/demo-app --timeout=180s
+EOF

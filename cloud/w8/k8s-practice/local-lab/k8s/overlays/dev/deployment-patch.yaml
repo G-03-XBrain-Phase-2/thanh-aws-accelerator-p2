@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: k8s-local-lab
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        environment: dev
+    spec:
+      containers:
+        - name: app
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "128Mi"

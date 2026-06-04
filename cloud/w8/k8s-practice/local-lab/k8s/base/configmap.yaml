@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: k8s-local-lab-config
+  labels:
+    app: k8s-local-lab
+    component: api
+data:
+  APP_NAME: "k8s-local-lab"
+  APP_VERSION: "v1"
+  MESSAGE: "Hello from base"

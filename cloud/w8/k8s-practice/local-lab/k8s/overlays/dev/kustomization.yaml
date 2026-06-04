@@ -1,0 +1,12 @@
+namespace: dev
+namePrefix: dev-
+
+resources:
+  - ../../base
+
+patchesStrategicMerge:
+  - configmap-patch.yaml
+  - deployment-patch.yaml
+
+commonLabels:
+  environment: dev
