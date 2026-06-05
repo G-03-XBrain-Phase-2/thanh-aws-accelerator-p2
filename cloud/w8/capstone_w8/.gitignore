@@ -16,3 +16,5 @@ override.tf.json
 *_override.tf.json
 
 *.pem
+
+README.md
