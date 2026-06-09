@@ -9,7 +9,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/lennhatthanh/thanh-aws-accelerator-p2.git
+    repoURL: https://github.com/G-03-XBrain-Phase-2/thanh-aws-accelerator-p2.git
     targetRevision: main
     path: cloud/w9/day-a/k8s
   destination:
