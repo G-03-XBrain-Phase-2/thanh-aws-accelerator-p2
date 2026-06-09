@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: plan-or-pr
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  validate-k8s:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Render Kustomize
+        run: |
+          kubectl kustomize cloud/w9/day-a/k8s
+
+      - name: Validate Kubernetes manifests
+        run: |
+          kubectl apply --dry-run=client -k cloud/w9/day-a/k8s
