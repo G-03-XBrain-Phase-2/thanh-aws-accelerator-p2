@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: observability-demo
+  namespace: observability-demo
+  labels:
+    app: observability-demo
+spec:
+  selector:
+    app: observability-demo
+  ports:
+  - name: http
+    port: 3000
+    targetPort: 3000
