@@ -19,4 +19,8 @@ spec:
         imagePullPolicy: Never
         ports:
         - containerPort: 3000
-      
+        env:
+        - name: OTEL_SERVICE_NAME
+          value: observability-demo
+        - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
+          value: http://otel-collector.observability-demo.svc.cluster.local:4318/v1/traces

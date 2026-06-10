@@ -1,0 +1,58 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: observability-demo-slo
+  namespace: monitoring
+  labels:
+    release: monitoring
+spec:
+  groups:
+    - name: observability-demo.slo
+      rules:
+        - alert: ObservabilityDemoFastBurn
+          expr: |
+            (
+              (
+                sum(rate(http_requests_total{namespace="observability-demo",status=~"5.."}[1h]))
+                /
+                sum(rate(http_requests_total{namespace="observability-demo"}[1h]))
+              ) / 0.001 > 14.4
+            )
+            and
+            (
+              (
+                sum(rate(http_requests_total{namespace="observability-demo",status=~"5.."}[5m]))
+                /
+                sum(rate(http_requests_total{namespace="observability-demo"}[5m]))
+              ) / 0.001 > 14.4
+            )
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Fast burn rate detected"
+            description: "Availability error budget is burning too fast."
+
+        - alert: ObservabilityDemoSlowBurn
+          expr: |
+            (
+              (
+                sum(rate(http_requests_total{namespace="observability-demo",status=~"5.."}[6h]))
+                /
+                sum(rate(http_requests_total{namespace="observability-demo"}[6h]))
+              ) / 0.001 > 6
+            )
+            and
+            (
+              (
+                sum(rate(http_requests_total{namespace="observability-demo",status=~"5.."}[30m]))
+                /
+                sum(rate(http_requests_total{namespace="observability-demo"}[30m]))
+              ) / 0.001 > 6
+            )
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Slow burn rate detected"
+            description: "Availability error budget is being consumed over a long period."
