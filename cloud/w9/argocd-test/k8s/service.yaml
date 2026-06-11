@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: argocd-test
+  labels:
+    app: argocd-test
+  namespace: argocd-test
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+spec:
+  selector:
+    app: argocd-test
+  ports:
+    - port: 80
+      targetPort: 80
