@@ -1,23 +1,23 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: frontend
+  name: argocd-test
   namespace: argocd-test
   annotations:
     argocd.argoproj.io/sync-wave: "2"
 spec:
-  replicas: 2
+  replicas: 5
   selector:
     matchLabels:
-      app: frontend
+      app: argocd-test
   template:
     metadata:
       labels:
-        app: frontend
+        app: argocd-test
     spec:
       containers:
-        - name: frontend
-          image: argocd-test-frontend:latest
-          imagePullPolicy: IfNotPresent
+        - name: argocd-test
+          image: nginx:1.27
           ports:
             - containerPort: 80
+    
