@@ -2,7 +2,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: argocd-test
+  name: argocd-test-be
   namespace: argocd
   annotations:
     argocd.argoproj.io/sync-wave: "1"
@@ -11,7 +11,7 @@ spec:
   source:
     repoURL: https://github.com/G-03-XBrain-Phase-2/thanh-aws-accelerator-p2.git
     targetRevision: main
-    path: cloud/w9/argocd-test/k8s
+    path: cloud/w9/argocd-test/k8s/backend
   destination:
     server: https://kubernetes.default.svc
     namespace: argocd-test
