@@ -25,7 +25,7 @@ Project này đáp ứng các ý chính trong lab HTML:
 - Backend là Flask app có endpoint `/metrics`.
 - Prometheus scrape metrics từ backend thông qua `ServiceMonitor`.
 - Backend deploy bằng `Rollout` thay vì `Deployment` để có canary.
-- Canary có các bước 25%, pause, 50%, pause 30s, 100%.
+- Canary có các bước 25%, analysis, 50%, analysis, 100%.
 - Có thể promote hoặc abort canary bằng Argo Rollouts.
 - Có SLO alert gửi email thông qua `PrometheusRule` + `AlertmanagerConfig`.
 - Có auto-abort canary bằng `AnalysisTemplate` query Prometheus.
@@ -432,8 +432,6 @@ strategy:
           templates:
             - templateName: backend-error-rate
       - setWeight: 50
-      - pause:
-          duration: 30s
       - analysis:
           templates:
             - templateName: backend-error-rate
@@ -446,8 +444,7 @@ strategy:
 setWeight: 25     -> đưa khoảng 25% pod sang version mới
 analysis          -> query Prometheus để kiểm tra error-rate
 setWeight: 50     -> nếu analysis pass, tiếp tục lên 50%
-pause: 30s        -> dừng 30 giây để quan sát ngắn
-analysis          -> kiểm tra error-rate lần nữa
+analysis          -> kiểm tra error-rate lần nữa ở mức 50%
 setWeight: 100    -> nếu vẫn ổn, promote toàn bộ sang version mới
 ```
 
@@ -540,7 +537,6 @@ Git đổi backend sang version mới
        backend quay về version trước
   -> nếu error-rate < 5%
        đi tiếp setWeight 50
-       pause 30s
        chạy analysis lần nữa
        pass thì setWeight 100
 ```

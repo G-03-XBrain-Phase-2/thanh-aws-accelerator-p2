@@ -42,8 +42,6 @@ spec:
             templates:
               - templateName: backend-error-rate
         - setWeight: 50
-        - pause:
-            duration: 30s
         - analysis:
             templates:
               - templateName: backend-error-rate
