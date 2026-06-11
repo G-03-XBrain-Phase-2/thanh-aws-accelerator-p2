@@ -27,8 +27,10 @@ Project này đáp ứng các ý chính trong lab HTML:
 - Backend deploy bằng `Rollout` thay vì `Deployment` để có canary.
 - Canary có các bước 25%, pause, 50%, pause 30s, 100%.
 - Có thể promote hoặc abort canary bằng Argo Rollouts.
+- Có SLO alert gửi email thông qua `PrometheusRule` + `AlertmanagerConfig`.
+- Có auto-abort canary bằng `AnalysisTemplate` query Prometheus.
 
-Phần challenge nâng cao như SLO alert gửi email và auto-abort bằng `AnalysisTemplate` chưa nằm trong cấu hình hiện tại. Project hiện tại đang dùng canary promote/abort thủ công.
+Phần challenge chính hiện đã có trong manifest: backend có alert email và Rollout có analysis tự kiểm tra error-rate. Nếu error-rate vượt ngưỡng, analysis fail và Argo Rollouts tự abort canary.
 
 ## Cấu Trúc Thư Mục
 
@@ -60,6 +62,10 @@ cloud/w9/argocd-test/
       backend-deployment.yaml
       backend-service.yaml
       servicemonitor.yaml
+      prometheusrule.yaml
+      alertmanagerconfig.yaml
+      alertmanager-email-secret.yaml
+      analysis-template.yaml
 
     frontend/
       kustomization.yaml
@@ -96,6 +102,8 @@ File `W9-sang-gitops-final.html` yêu cầu nền GitOps trước khi sang Obser
 | ConfigMap + envFrom | Có `backend-config.yaml` và backend Rollout đọc bằng `envFrom` |
 | Root Kustomize tổng | Có `k8s/kustomization.yaml` |
 | CI validate manifest | Có `.github/workflows/validate-argocd-test.yml` |
+| SLO alert email | Có `PrometheusRule` + `AlertmanagerConfig` |
+| Canary auto-abort | Có `AnalysisTemplate` gắn vào backend Rollout |
 
 Điểm cần hiểu: branch protection không nằm trong source code. Phần đó phải bật trong GitHub UI: Settings -> Branches -> Add rule cho `main`, yêu cầu PR review và status check `validate-argocd-test`.
 
@@ -420,24 +428,32 @@ strategy:
   canary:
     steps:
       - setWeight: 25
-      - pause: {}
+      - analysis:
+          templates:
+            - templateName: backend-error-rate
       - setWeight: 50
       - pause:
           duration: 30s
+      - analysis:
+          templates:
+            - templateName: backend-error-rate
       - setWeight: 100
 ```
 
 Ý nghĩa từng bước:
 
 ```text
-setWeight: 25     -> đưa 25% traffic/pod sang version mới
-pause: {}         -> dừng vô hạn, chờ người quan sát và promote tay
-setWeight: 50     -> tiếp tục lên 50%
-pause: 30s        -> dừng 30 giây
-setWeight: 100    -> promote toàn bộ sang version mới
+setWeight: 25     -> đưa khoảng 25% pod sang version mới
+analysis          -> query Prometheus để kiểm tra error-rate
+setWeight: 50     -> nếu analysis pass, tiếp tục lên 50%
+pause: 30s        -> dừng 30 giây để quan sát ngắn
+analysis          -> kiểm tra error-rate lần nữa
+setWeight: 100    -> nếu vẫn ổn, promote toàn bộ sang version mới
 ```
 
-Trong lab hiện tại, việc quyết định tiếp tục hay dừng lại là thủ công:
+Trong lab hiện tại, Rollout đã có auto-abort bằng analysis. Nếu metric xấu, Rollout tự fail analysis và abort về version trước.
+
+Bạn vẫn có thể can thiệp thủ công nếu muốn:
 
 ```bash
 kubectl argo rollouts promote backend -n argocd-test
@@ -453,6 +469,103 @@ Theo dõi:
 ```bash
 kubectl argo rollouts get rollout backend -n argocd-test --watch
 ```
+
+## AnalysisTemplate Và Auto-Abort
+
+File:
+
+```text
+cloud/w9/argocd-test/k8s/backend/analysis-template.yaml
+```
+
+`AnalysisTemplate` là resource của Argo Rollouts. Nó định nghĩa một bài kiểm tra chất lượng release.
+
+Trong project này, analysis query Prometheus để tính error-rate backend:
+
+```yaml
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: backend-error-rate
+spec:
+  metrics:
+    - name: backend-error-rate
+      interval: 30s
+      count: 3
+      failureLimit: 1
+      successCondition: result[0] < 0.05
+      failureCondition: result[0] >= 0.05
+```
+
+Ý nghĩa:
+
+```text
+interval: 30s        -> mỗi 30 giây query Prometheus một lần
+count: 3             -> query tổng cộng 3 lần
+failureLimit: 1      -> chỉ cần fail 1 lần là analysis fail
+successCondition     -> pass nếu error-rate < 5%
+failureCondition     -> fail nếu error-rate >= 5%
+```
+
+Prometheus query:
+
+```promql
+(
+  sum(rate(flask_http_request_total{namespace="argocd-test", status=~"5.."}[1m]))
+  /
+  clamp_min(sum(rate(flask_http_request_total{namespace="argocd-test"}[1m])), 1)
+)
+```
+
+Query này tính:
+
+```text
+số request 5xx mỗi giây / tổng request mỗi giây
+```
+
+`clamp_min(..., 1)` tránh lỗi chia cho 0 khi chưa có traffic.
+
+Luồng auto-abort:
+
+```text
+Git đổi backend sang version mới
+  -> Argo CD sync Rollout
+  -> Argo Rollouts tạo ReplicaSet mới
+  -> setWeight 25
+  -> chạy AnalysisTemplate backend-error-rate
+  -> query Prometheus
+  -> nếu error-rate >= 5%
+       analysis fail
+       rollout abort
+       backend quay về version trước
+  -> nếu error-rate < 5%
+       đi tiếp setWeight 50
+       pause 30s
+       chạy analysis lần nữa
+       pass thì setWeight 100
+```
+
+Kiểm tra analysis:
+
+```bash
+kubectl -n argocd-test get analysistemplate
+kubectl -n argocd-test get analysisrun
+kubectl argo rollouts get rollout backend -n argocd-test --watch
+```
+
+Nếu analysis không chạy được, kiểm tra địa chỉ Prometheus trong `analysis-template.yaml`:
+
+```yaml
+address: http://monitoring-kube-prometheus-prometheus.monitoring.svc:9090
+```
+
+Nếu service Prometheus của bạn tên khác, lấy tên thật:
+
+```bash
+kubectl -n monitoring get svc | grep prometheus
+```
+
+Sau đó sửa `address`.
 
 ## Service Là Gì?
 
@@ -874,6 +987,9 @@ kubectl get ns argocd-test
 kubectl -n argocd-test get all
 kubectl -n argocd-test get rollout
 kubectl -n argocd-test get servicemonitor
+kubectl -n argocd-test get prometheusrule
+kubectl -n argocd-test get alertmanagerconfig
+kubectl -n argocd-test get analysistemplate
 ```
 
 ### 3. Tạo traffic
@@ -1168,6 +1284,9 @@ Và:
 kubectl -n argocd-test get rollout
 kubectl -n argocd-test get svc backend
 kubectl -n argocd-test get servicemonitor
+kubectl -n argocd-test get prometheusrule
+kubectl -n argocd-test get alertmanagerconfig
+kubectl -n argocd-test get analysistemplate
 kubectl -n monitoring get pods
 kubectl -n argo-rollouts get pods
 ```
@@ -1188,6 +1307,14 @@ Rollout phải xem được:
 
 ```bash
 kubectl argo rollouts get rollout backend -n argocd-test
+```
+
+Alert và auto-abort phải có:
+
+```bash
+kubectl -n argocd-test get prometheusrule backend-slo-rules
+kubectl -n argocd-test get alertmanagerconfig backend-email-alerts
+kubectl -n argocd-test get analysistemplate backend-error-rate
 ```
 
 ## Lỗi Thường Gặp
@@ -1281,18 +1408,27 @@ kubectl -n argocd-test port-forward svc/backend 8080:8080
 curl http://localhost:8080/metrics
 ```
 
-## Hướng Mở Rộng Cho Challenge
+## Trạng Thái Challenge Và Hướng Mở Rộng
 
-Để đạt challenge "Ship Smartly" đầy đủ, cần thêm:
+Project hiện đã có các thành phần chính của challenge "Ship Smartly":
 
 1. `AnalysisTemplate` query Prometheus.
-2. Gắn analysis vào `strategy.canary`.
-3. SLO/PrometheusRule cho backend.
-4. Alertmanager route gửi email.
-5. README hoặc evidence chụp ảnh/chứng minh:
+2. Analysis đã được gắn vào `strategy.canary`.
+3. `PrometheusRule` cho backend.
+4. `AlertmanagerConfig` route alert về email.
+5. README giải thích luồng vận hành.
+
+Những phần còn cần làm để chứng minh khi nộp bài:
+
+1. Cấu hình email thật thay cho placeholder.
+2. Build image backend vào Minikube hoặc registry.
+3. Tạo traffic để metric tăng.
+4. Inject lỗi bằng `ERROR_RATE`.
+5. Chụp ảnh/chứng minh:
    - metric tăng,
    - alert fire,
-   - canary bản lỗi tự abort,
+   - email nhận được,
+   - canary bản lỗi tự abort bằng `AnalysisTemplate`,
    - rollback bằng `git revert`.
 
 Ý tưởng auto-abort:
@@ -1305,4 +1441,281 @@ Canary v2 được release
   -> Rollout tự abort về v1
 ```
 
-Đó là bước tiếp theo sau khi manual canary đã chạy ổn.
+Trong production, có thể mở rộng thêm:
+
+- Burn-rate alert nhiều cửa sổ thời gian, ví dụ 5m/1h và 30m/6h.
+- Critical alert gửi PagerDuty/Opsgenie, warning gửi email/Slack.
+- `AnalysisTemplate` dùng nhiều metric cùng lúc: error-rate, p95 latency, pod restart.
+- Tách config dev/staging/prod bằng Kustomize overlays.
+- Dùng Secret manager thay cho Secret plaintext trong Git.
+
+## Alert Email Đã Được Bổ Sung
+
+Project hiện đã có phần alert email cơ bản cho backend:
+
+```text
+k8s/backend/prometheusrule.yaml
+k8s/backend/alertmanagerconfig.yaml
+k8s/backend/alertmanager-email-secret.yaml
+```
+
+Ba file này tạo thành luồng:
+
+```text
+Backend Flask /metrics
+  -> ServiceMonitor scrape /metrics
+  -> Prometheus lưu metric flask_http_request_total
+  -> PrometheusRule đánh giá error rate
+  -> alert BackendHighErrorRate fire
+  -> Alertmanager nhận alert
+  -> AlertmanagerConfig route alert tới receiver email
+  -> SMTP gửi email tới người nhận
+```
+
+### 1. PrometheusRule
+
+File:
+
+```text
+cloud/w9/argocd-test/k8s/backend/prometheusrule.yaml
+```
+
+Rule chính:
+
+```yaml
+alert: BackendHighErrorRate
+expr: |
+  (
+    sum(rate(flask_http_request_total{namespace="argocd-test", status=~"5.."}[5m]))
+    /
+    sum(rate(flask_http_request_total{namespace="argocd-test"}[5m]))
+  ) > 0.05
+for: 2m
+```
+
+Ý nghĩa:
+
+```text
+Nếu hơn 5% request backend trả status 5xx
+trong ít nhất 2 phút
+thì bắn alert BackendHighErrorRate.
+```
+
+`labels.release: monitoring` giúp Prometheus Operator của kube-prometheus-stack chọn rule này nếu release Prometheus của bạn tên là `monitoring`.
+
+Kiểm tra rule:
+
+```bash
+kubectl -n argocd-test get prometheusrule
+kubectl -n argocd-test describe prometheusrule backend-slo-rules
+```
+
+### 2. AlertmanagerConfig
+
+File:
+
+```text
+cloud/w9/argocd-test/k8s/backend/alertmanagerconfig.yaml
+```
+
+File này định nghĩa receiver email:
+
+```yaml
+receivers:
+  - name: backend-email
+    emailConfigs:
+      - to: "your-email@example.com"
+        from: "your-email@example.com"
+        smarthost: "smtp.gmail.com:587"
+```
+
+Bạn phải sửa:
+
+```text
+to
+from
+authUsername
+authIdentity
+```
+
+thành email thật của bạn.
+
+Nếu dùng Gmail, thường cần App Password, không dùng mật khẩu Gmail thường.
+
+### 3. Secret SMTP
+
+File:
+
+```text
+cloud/w9/argocd-test/k8s/backend/alertmanager-email-secret.yaml
+```
+
+Hiện đang là placeholder:
+
+```yaml
+stringData:
+  smtp-password: "CHANGE_ME_DO_NOT_USE_IN_PROD"
+```
+
+Không nên commit mật khẩu thật lên Git.
+
+Cách tốt hơn cho lab là tạo secret bằng tay:
+
+```bash
+kubectl -n argocd-test create secret generic alertmanager-email-secret \
+  --from-literal=smtp-password='APP_PASSWORD_CUA_BAN' \
+  --dry-run=client -o yaml | kubectl apply -f -
+```
+
+Sau đó có 2 lựa chọn:
+
+1. Giữ file secret placeholder trong Git để lab dễ hiểu, nhưng trước khi sync thì sửa tạm local.
+2. Bỏ secret thật khỏi Git, dùng External Secrets/Sealed Secrets trong môi trường thật.
+
+Trong prod, tuyệt đối không commit password thật vào Git.
+
+### 4. Điều kiện để AlertmanagerConfig được nhận
+
+Không phải cứ tạo `AlertmanagerConfig` là Alertmanager tự nhận. kube-prometheus-stack phải được cấu hình để chọn AlertmanagerConfig theo label.
+
+Kiểm tra:
+
+```bash
+kubectl -n monitoring get alertmanager -o yaml
+```
+
+Tìm các phần như:
+
+```yaml
+alertmanagerConfigSelector
+alertmanagerConfigNamespaceSelector
+```
+
+Nếu Alertmanager không chọn config từ namespace `argocd-test`, bạn cần chỉnh Helm values của kube-prometheus-stack.
+
+Ví dụ values mong muốn về mặt ý tưởng:
+
+```yaml
+alertmanager:
+  alertmanagerSpec:
+    alertmanagerConfigSelector:
+      matchLabels:
+        release: monitoring
+    alertmanagerConfigNamespaceSelector: {}
+```
+
+Rồi upgrade Helm release `monitoring` theo values của bạn.
+
+### 5. Cách test alert email
+
+Bước 1: đảm bảo backend đang chạy:
+
+```bash
+kubectl -n argocd-test get pods
+kubectl -n argocd-test get rollout backend
+```
+
+Bước 2: build/sync bản có lỗi cao. Sửa trong `backend-deployment.yaml`:
+
+```yaml
+env:
+  - name: ERROR_RATE
+    value: "0.8"
+```
+
+Commit/push:
+
+```bash
+git add cloud/w9/argocd-test
+git commit -m "inject backend errors for alert test"
+git push
+```
+
+Bước 3: tạo traffic:
+
+```bash
+kubectl -n argocd-test run load --image=busybox --restart=Never -- \
+  sh -c "while true; do wget -qO- http://backend:8080/; sleep 1; done"
+```
+
+Bước 4: mở Prometheus:
+
+```bash
+kubectl -n monitoring port-forward svc/monitoring-kube-prometheus-prometheus 9090:9090
+```
+
+Query:
+
+```promql
+flask_http_request_total{namespace="argocd-test"}
+```
+
+Vào tab Alerts trong Prometheus để xem `BackendHighErrorRate` chuyển từ Pending sang Firing.
+
+Bước 5: kiểm tra Alertmanager:
+
+```bash
+kubectl -n monitoring get svc | grep alertmanager
+kubectl -n monitoring port-forward svc/monitoring-kube-prometheus-alertmanager 9093:9093
+```
+
+Mở:
+
+```text
+http://localhost:9093
+```
+
+Nếu SMTP đúng, bạn sẽ nhận email.
+
+### 6. Dev và Prod khác nhau thế nào?
+
+Trong dev/lab:
+
+- Có thể dùng Gmail App Password để test.
+- Có thể để `ERROR_RATE=0.8` để ép alert fire.
+- Có thể dùng threshold thấp như 5% trong 2 phút để thấy nhanh.
+- Có thể tạo secret bằng tay.
+
+Trong prod:
+
+- Không commit SMTP password vào Git.
+- Dùng External Secrets, Sealed Secrets, Vault, AWS Secrets Manager hoặc GCP Secret Manager.
+- Alert nên gửi vào nhiều kênh: email, Slack, PagerDuty, Opsgenie.
+- Không alert mọi lỗi nhỏ; nên alert theo SLO/burn rate.
+- Alert phải có runbook: ai xử lý, kiểm tra gì, rollback thế nào.
+- Phải có route theo severity:
+  - warning: email/Slack
+  - critical: paging/on-call
+
+Ví dụ phân cấp:
+
+```text
+warning  -> gửi email cho team
+critical -> gọi on-call qua PagerDuty/Opsgenie
+```
+
+### 7. Luồng vận hành khi alert bắn
+
+Khi nhận email `BackendHighErrorRate`, xử lý theo luồng:
+
+```text
+1. Mở Grafana/Prometheus xem error rate.
+2. Xem Argo Rollouts backend đang ở revision nào.
+3. Xem logs backend qua Loki.
+4. Nếu lỗi đến từ release mới, abort rollout:
+   kubectl argo rollouts abort backend -n argocd-test
+5. Nếu đã merge/push sai config, rollback bằng Git:
+   git revert <commit-id> --no-edit
+   git push
+6. Xác nhận Argo CD sync về bản ổn.
+7. Xác nhận alert resolved.
+```
+
+Đây là tinh thần của bài:
+
+```text
+GitOps + Observability + Canary
+  -> phát hiện lỗi bằng metric
+  -> cảnh báo qua email
+  -> rollback bằng rollout abort hoặc git revert
+```

@@ -38,8 +38,13 @@ spec:
     canary:
       steps:
         - setWeight: 25
-        - pause: {}
+        - analysis:
+            templates:
+              - templateName: backend-error-rate
         - setWeight: 50
         - pause:
             duration: 30s
+        - analysis:
+            templates:
+              - templateName: backend-error-rate
         - setWeight: 100

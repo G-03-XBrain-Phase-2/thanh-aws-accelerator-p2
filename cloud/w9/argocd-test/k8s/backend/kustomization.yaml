@@ -4,6 +4,10 @@ kind: Kustomization
 resources:
   - namespace.yaml
   - backend-config.yaml
+  - alertmanager-email-secret.yaml
   - backend-deployment.yaml
   - backend-service.yaml
   - servicemonitor.yaml
+  - prometheusrule.yaml
+  - alertmanagerconfig.yaml
+  - analysis-template.yaml

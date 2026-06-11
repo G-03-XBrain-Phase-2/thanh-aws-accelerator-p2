@@ -1,0 +1,27 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: backend-slo-rules
+  namespace: argocd-test
+  labels:
+    release: monitoring
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+spec:
+  groups:
+    - name: backend.slo
+      rules:
+        - alert: BackendHighErrorRate
+          expr: |
+            (
+              sum(rate(flask_http_request_total{namespace="argocd-test", status=~"5.."}[5m]))
+              /
+              sum(rate(flask_http_request_total{namespace="argocd-test"}[5m]))
+            ) > 0.05
+          for: 2m
+          labels:
+            severity: warning
+            service: backend
+          annotations:
+            summary: "Backend error rate is above 5%"
+            description: "More than 5% of backend HTTP requests are failing for at least 2 minutes."

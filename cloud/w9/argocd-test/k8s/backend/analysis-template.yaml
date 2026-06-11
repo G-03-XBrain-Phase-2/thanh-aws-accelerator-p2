@@ -1,0 +1,24 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: backend-error-rate
+  namespace: argocd-test
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+spec:
+  metrics:
+    - name: backend-error-rate
+      interval: 30s
+      count: 3
+      failureLimit: 1
+      successCondition: result[0] < 0.05
+      failureCondition: result[0] >= 0.05
+      provider:
+        prometheus:
+          address: http://monitoring-kube-prometheus-prometheus.monitoring.svc:9090
+          query: |
+            (
+              sum(rate(flask_http_request_total{namespace="argocd-test", status=~"5.."}[1m]))
+              /
+              clamp_min(sum(rate(flask_http_request_total{namespace="argocd-test"}[1m])), 1)
+            )

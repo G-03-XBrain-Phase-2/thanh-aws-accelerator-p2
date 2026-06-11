@@ -1,0 +1,32 @@
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: AlertmanagerConfig
+metadata:
+  name: backend-email-alerts
+  namespace: argocd-test
+  labels:
+    release: monitoring
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+spec:
+  route:
+    receiver: backend-email
+    groupBy:
+      - alertname
+      - namespace
+      - service
+    groupWait: 30s
+    groupInterval: 5m
+    repeatInterval: 1h
+  receivers:
+    - name: backend-email
+      emailConfigs:
+        - to: "your-email@example.com"
+          from: "your-email@example.com"
+          smarthost: "smtp.gmail.com:587"
+          authUsername: "your-email@example.com"
+          authIdentity: "your-email@example.com"
+          authPassword:
+            name: alertmanager-email-secret
+            key: smtp-password
+          requireTLS: true
+          sendResolved: true
