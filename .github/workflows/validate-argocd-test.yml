@@ -1,0 +1,44 @@
+name: validate-argocd-test
+
+on:
+  pull_request:
+    paths:
+      - "cloud/w9/argocd-test/**"
+      - ".github/workflows/validate-argocd-test.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "cloud/w9/argocd-test/**"
+      - ".github/workflows/validate-argocd-test.yml"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Render root kustomization
+        run: kubectl kustomize cloud/w9/argocd-test/k8s > /tmp/argocd-test.yaml
+
+      - name: Render backend kustomization
+        run: kubectl kustomize cloud/w9/argocd-test/k8s/backend > /tmp/argocd-test-backend.yaml
+
+      - name: Render frontend kustomization
+        run: kubectl kustomize cloud/w9/argocd-test/k8s/frontend > /tmp/argocd-test-frontend.yaml
+
+      - name: Install kubeconform
+        run: |
+          curl -sSLo kubeconform.tar.gz https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz
+          tar -xzf kubeconform.tar.gz
+          sudo mv kubeconform /usr/local/bin/kubeconform
+
+      - name: Validate rendered manifests
+        run: |
+          kubeconform -summary -ignore-missing-schemas /tmp/argocd-test.yaml
+          kubeconform -summary -ignore-missing-schemas /tmp/argocd-test-backend.yaml
+          kubeconform -summary -ignore-missing-schemas /tmp/argocd-test-frontend.yaml

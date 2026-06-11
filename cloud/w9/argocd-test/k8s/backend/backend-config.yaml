@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  namespace: argocd-test
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+data:
+  MESSAGE: "hello from backend configmap"

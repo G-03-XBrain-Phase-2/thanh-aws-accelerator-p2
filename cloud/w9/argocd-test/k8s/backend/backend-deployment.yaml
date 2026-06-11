@@ -22,6 +22,9 @@ spec:
           ports:
             - containerPort: 8080
               name: http
+          envFrom:
+            - configMapRef:
+                name: backend-config
           env:
             - name: ERROR_RATE
               value: "0"
