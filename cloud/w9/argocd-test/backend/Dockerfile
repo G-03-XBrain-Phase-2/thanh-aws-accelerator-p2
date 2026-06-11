@@ -1,7 +1,11 @@
-FROM python:3.12-alpine
+FROM python:3.12-slim
+
+RUN pip install flask prometheus-flask-exporter
 
 WORKDIR /app
-COPY app.py .
+COPY app.py /app/app.py
 
+ENV FLASK_APP=app.py
 EXPOSE 8080
-CMD ["python", "app.py"]
+
+CMD ["flask", "run", "--host=0.0.0.0", "--port=8080"]

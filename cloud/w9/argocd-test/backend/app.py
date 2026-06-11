@@ -1,25 +1,23 @@
-from http.server import BaseHTTPRequestHandler, HTTPServer
-import json
+import os
+import random
+from flask import Flask, jsonify
+from prometheus_flask_exporter import PrometheusMetrics
+
+app = Flask(__name__)
+PrometheusMetrics(app)
+
+ERROR_RATE = float(os.getenv("ERROR_RATE", "0"))
+VERSION = os.getenv("VERSION", "v1")
 
 
-class Handler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        body = {
-            "service": "backend",
-            "status": "ok",
-            "message": "Hello from argocd-test backend",
-        }
-        payload = json.dumps(body).encode("utf-8")
+@app.get("/")
+def index():
+    if random.random() < ERROR_RATE:
+        return jsonify(error="injected", version=VERSION), 500
 
-        self.send_response(200)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Content-Length", str(len(payload)))
-        self.end_headers()
-        self.wfile.write(payload)
-
-    def log_message(self, format, *args):
-        return
+    return jsonify(ok=True, service="backend", version=VERSION)
 
 
-if __name__ == "__main__":
-    HTTPServer(("0.0.0.0", 8080), Handler).serve_forever()
+@app.get("/healthz")
+def healthz():
+    return "ok", 200

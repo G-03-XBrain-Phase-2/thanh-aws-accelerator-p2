@@ -1,12 +1,12 @@
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
 metadata:
   name: backend
   namespace: argocd-test
   annotations:
     argocd.argoproj.io/sync-wave: "2"
 spec:
-  replicas: 2
+  replicas: 4
   selector:
     matchLabels:
       app: backend
@@ -17,7 +17,26 @@ spec:
     spec:
       containers:
         - name: backend
-          image: argocd-test-backend:latest
+          image: argocd-test-backend:v1
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
+              name: http
+          env:
+            - name: ERROR_RATE
+              value: "0"
+            - name: VERSION
+              value: "v1"
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+strategy:
+  canary: 
+    steps:
+        - setWeight: 25
+        - pause: {}
+        - setWeight: 50
+        - pause:
+            duration: 30s
+        - setWeight: 100
