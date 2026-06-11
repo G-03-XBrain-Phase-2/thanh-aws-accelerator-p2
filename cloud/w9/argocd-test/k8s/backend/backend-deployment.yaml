@@ -31,9 +31,9 @@ spec:
             httpGet:
               path: /healthz
               port: 8080
-strategy:
-  canary: 
-    steps:
+  strategy:
+    canary:
+      steps:
         - setWeight: 25
         - pause: {}
         - setWeight: 50
