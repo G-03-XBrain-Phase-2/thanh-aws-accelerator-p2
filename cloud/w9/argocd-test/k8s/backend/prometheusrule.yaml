@@ -14,9 +14,9 @@ spec:
         - alert: BackendHighErrorRate
           expr: |
             (
-              sum(rate(flask_http_request_total{namespace="argocd-test", status=~"5.."}[5m]))
+              (sum(rate(flask_http_request_total{namespace="argocd-test", status=~"5.."}[5m])) or vector(0))
               /
-              sum(rate(flask_http_request_total{namespace="argocd-test"}[5m]))
+              clamp_min((sum(rate(flask_http_request_total{namespace="argocd-test"}[5m])) or vector(0)), 1)
             ) > 0.05
           for: 2m
           labels:

@@ -18,7 +18,7 @@ spec:
           address: http://monitoring-kube-prometheus-prometheus.monitoring.svc:9090
           query: |
             (
-              sum(rate(flask_http_request_total{namespace="argocd-test", status=~"5.."}[1m]))
+              (sum(rate(flask_http_request_total{namespace="argocd-test", status=~"5.."}[1m])) or vector(0))
               /
-              clamp_min(sum(rate(flask_http_request_total{namespace="argocd-test"}[1m])), 1)
+              clamp_min((sum(rate(flask_http_request_total{namespace="argocd-test"}[1m])) or vector(0)), 1)
             )
