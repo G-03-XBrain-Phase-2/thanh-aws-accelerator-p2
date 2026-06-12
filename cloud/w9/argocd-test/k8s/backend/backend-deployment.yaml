@@ -27,9 +27,9 @@ spec:
                 name: backend-config
           env:
             - name: ERROR_RATE
-              value: "0"
+              value: "0.8"
             - name: VERSION
-              value: "v1-fixed"
+              value: "v1-email-test"
           readinessProbe:
             httpGet:
               path: /healthz
