@@ -438,11 +438,42 @@ kubectl argo rollouts retry rollout backend -n argocd-test
 
 ## Vì Sao Có Nhiều ReplicaSet Và AnalysisRun?
 
-Mỗi lần đổi Pod template qua Git, ví dụ đổi `VERSION` hoặc `ERROR_RATE`, Argo Rollouts tạo ReplicaSet mới.
+Trong Argo CD tree có thể thấy nhiều `ReplicaSet` và nhiều `AnalysisRun`. Đây là hành vi bình thường của Argo Rollouts, không phải tự nhiên sinh rác.
 
-Mỗi lần đến step analysis, nó tạo AnalysisRun mới.
+### Vì sao có nhiều ReplicaSet?
 
-Đây là lịch sử rollout, không phải lỗi.
+Backend không dùng `Deployment` thường mà dùng `Rollout`. Bên dưới `Rollout`, Kubernetes vẫn dùng `ReplicaSet` để giữ từng version của Pod template.
+
+Mỗi lần đổi phần `spec.template` của backend qua Git, ví dụ:
+
+```yaml
+ERROR_RATE: "0.8"
+VERSION: "v2-bad"
+```
+
+hoặc rollback lại:
+
+```yaml
+ERROR_RATE: "0"
+VERSION: "v1"
+```
+
+thì Argo Rollouts tạo một `ReplicaSet` mới cho revision mới.
+
+Ví dụ trong Argo CD tree:
+
+```text
+backend-5dbc4846c6  rev:17
+backend-c7996f6bf   rev:16
+backend-7cfdbb86fb  rev:10
+```
+
+Ý nghĩa:
+
+- `rev:17` là revision mới nhất hiện tại.
+- `rev:16` có thể là revision test lỗi trước đó.
+- `rev:10` là revision cũ hơn còn được giữ lại trong history.
+- ReplicaSet màu xanh/Healthy nghĩa là resource đó không crash, không đồng nghĩa tất cả đều đang nhận traffic.
 
 Project có:
 
@@ -450,13 +481,135 @@ Project có:
 revisionHistoryLimit: 2
 ```
 
-để hạn chế ReplicaSet cũ. AnalysisRun cũ có thể xóa sau khi chụp evidence:
+để hạn chế số ReplicaSet cũ mà Rollout giữ lại. Tuy vậy, trong lúc test nhiều lần, bạn vẫn có thể thấy nhiều ReplicaSet trong Argo CD UI vì:
+
+- Rollout đang giữ stable ReplicaSet và canary ReplicaSet.
+- Argo CD cache/tree chưa refresh sạch ngay.
+- Một vài ReplicaSet cũ còn tồn tại cho rollback/history.
+
+### Vì sao pod chuyển dần dần qua version mới?
+
+Canary release không thay toàn bộ pod một lần. Nó chuyển traffic/tỉ lệ pod theo từng bước để giảm rủi ro.
+
+Trong file backend rollout có logic kiểu:
+
+```yaml
+steps:
+  - setWeight: 25
+  - analysis:
+      templates:
+        - templateName: backend-error-rate
+  - setWeight: 50
+  - analysis:
+      templates:
+        - templateName: backend-error-rate
+  - setWeight: 100
+```
+
+Với `replicas: 4`, `setWeight` sẽ gần tương ứng như sau:
+
+```text
+setWeight: 25   -> khoảng 1 pod canary, 3 pod stable
+setWeight: 50   -> khoảng 2 pod canary, 2 pod stable
+setWeight: 100  -> toàn bộ pod chạy version mới
+```
+
+Luồng đúng:
+
+```text
+Git push version mới
+  -> Argo CD sync Rollout
+  -> Rollout tạo ReplicaSet mới
+  -> chạy một phần pod canary
+  -> AnalysisRun hỏi Prometheus error-rate
+  -> nếu tốt thì tăng weight
+  -> nếu xấu thì abort, giữ stable version
+```
+
+Vì vậy trong tree có lúc bạn thấy 2 nhánh pod/ReplicaSet cùng tồn tại. Đó là thời điểm Rollout đang giữ cả version stable và version canary.
+
+### Vì sao có nhiều AnalysisRun?
+
+Mỗi lần Rollout đi tới một step `analysis`, nó tạo một `AnalysisRun` mới. Nếu một rollout có 2 step analysis thì một revision có thể tạo nhiều AnalysisRun.
+
+Ví dụ:
+
+```text
+backend-c7996f6bf-14-1
+backend-c7996f6bf-14-3
+backend-c7996f6bf-16-1
+backend-c7996f6bf-16-3
+```
+
+Cách đọc tên:
+
+```text
+backend-<replicaset-hash>-<revision>-<analysis-step>
+```
+
+Trong đó:
+
+- `<replicaset-hash>` cho biết AnalysisRun thuộc ReplicaSet nào.
+- `<revision>` cho biết nó thuộc lần rollout thứ mấy.
+- `<analysis-step>` cho biết nó được tạo ở step analysis nào.
+
+Vì bạn test lỗi, rollback, rồi test lại nhiều lần nên có nhiều AnalysisRun là bình thường.
+
+### Vì sao có AnalysisRun xanh và đỏ?
+
+AnalysisRun màu xanh/Healthy nghĩa là lần đo đó pass.
+
+Ví dụ:
+
+```text
+error-rate < 0.05
+```
+
+AnalysisRun màu đỏ/Degraded nghĩa là lần đo đó fail.
+
+Ví dụ:
+
+```text
+error-rate >= 0.05
+```
+
+Trong lab này, AnalysisRun đỏ là bằng chứng tốt cho phần auto-abort:
+
+```text
+Backend lỗi cao
+  -> Prometheus query trả error-rate xấu
+  -> AnalysisRun Failed
+  -> RolloutAborted
+  -> Argo CD hiển thị Degraded
+```
+
+Sau khi bạn `git revert` commit lỗi và Rollout về Healthy, các AnalysisRun đỏ cũ vẫn có thể còn nằm trong tree như lịch sử. Nó không có nghĩa app hiện tại vẫn lỗi. Muốn biết hiện tại có ổn không, nhìn vào:
+
+```bash
+kubectl argo rollouts get rollout backend -n argocd-test
+kubectl -n argocd get applications
+kubectl -n argocd-test get pods
+```
+
+Kỳ vọng sau rollback:
+
+```text
+argocd-test-be   Synced   Healthy
+backend pods     Running
+rollout backend  Healthy
+```
+
+Đây là lịch sử rollout, không phải lỗi.
+
+### Có xóa bớt được không?
+
+Có thể xóa AnalysisRun cũ sau khi đã chụp evidence:
 
 ```bash
 kubectl -n argocd-test delete analysisrun --all
 ```
 
-Không nên xóa ReplicaSet hiện tại hoặc stable ReplicaSet nếu chưa chắc.
+Không nên xóa tay ReplicaSet hiện tại hoặc stable ReplicaSet nếu chưa chắc, vì Rollout đang dùng chúng để giữ version ổn định hoặc để rollback. Nếu muốn sạch hơn, ưu tiên để `revisionHistoryLimit` quản lý tự động.
 
 ## Quy Trình Test Đúng
 
