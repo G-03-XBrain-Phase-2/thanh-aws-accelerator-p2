@@ -12,7 +12,7 @@ Các thành phần chính:
 - Namespace workload: `argocd-test`.
 - Backend: Flask app expose `/metrics`.
 - Frontend: Nginx static site.
-- Observability: Prometheus, ServiceMonitor, PrometheusRule, AlertmanagerConfig.
+- Observability: Prometheus, ServiceMonitor, PrometheusRule, Alertmanager config Secret.
 - Canary: Argo Rollouts + AnalysisTemplate.
 - Rollback: Git revert + Argo CD sync.
 
@@ -47,7 +47,7 @@ Tree của `argocd-test-be` có các resource chính:
 - Rollout `backend`.
 - ServiceMonitor `backend`.
 - PrometheusRule `backend-slo-rules`.
-- AlertmanagerConfig `backend-email-alerts`.
+- Alertmanager dùng Secret `alertmanager-config` trong namespace `monitoring`.
 - AnalysisTemplate `backend-error-rate`.
 
 Ý nghĩa:
@@ -123,7 +123,7 @@ Luồng alert end-to-end đã hoạt động:
 ```text
 PrometheusRule
   -> Alertmanager
-  -> AlertmanagerConfig
+  -> Secret alertmanager-config
   -> Gmail SMTP
   -> Email cá nhân
 ```
@@ -187,6 +187,165 @@ evidence/09-git-revert.png
 evidence/10-rollback-healthy.png
 ```
 
+## Cách Tạo Bằng Chứng
+
+### 1. Baseline GitOps
+
+```bash
+kubectl -n argocd get applications
+kubectl -n argocd-test get rollout,pods,svc
+kubectl -n argocd-test get servicemonitor,prometheusrule,analysistemplate
+```
+
+Chụp:
+
+```text
+evidence/01-argocd-apps.png
+evidence/03-k8s-resources.png
+```
+
+### 2. Cấu Hình Email An Toàn
+
+File mẫu trong Git:
+
+```text
+cloud/w9/argocd-test/monitoring/alertmanager-config.yaml
+```
+
+File này không chứa password thật. Secret thật được tạo trực tiếp trong cluster.
+
+Tạo Secret Alertmanager, thay `APP_PASSWORD` bằng Google App Password 16 ký tự:
+
+```bash
+kubectl -n monitoring create secret generic alertmanager-config \
+  --from-literal=alertmanager.yaml="global:
+  resolve_timeout: 5m
+  smtp_smarthost: smtp.gmail.com:587
+  smtp_from: lenguyennhatthanh72@gmail.com
+  smtp_auth_username: lenguyennhatthanh72@gmail.com
+  smtp_auth_password: APP_PASSWORD
+  smtp_require_tls: true
+
+route:
+  receiver: blackhole
+  routes:
+    - receiver: personal-email
+      matchers:
+        - alertname=\"BackendHighErrorRate\"
+      group_by:
+        - alertname
+      group_wait: 10s
+      group_interval: 30s
+      repeat_interval: 2h
+
+receivers:
+  - name: blackhole
+  - name: personal-email
+    email_configs:
+      - to: lenguyennhatthanh72@gmail.com
+        send_resolved: true" \
+  --dry-run=client -o yaml | kubectl apply -f -
+```
+
+Cho Alertmanager đọc Secret:
+
+```bash
+kubectl -n monitoring patch alertmanager monitoring-kube-prometheus-alertmanager \
+  --type merge \
+  -p '{"spec":{"configSecret":"alertmanager-config"}}'
+
+kubectl -n monitoring delete pod alertmanager-monitoring-kube-prometheus-alertmanager-0
+```
+
+Kiểm tra:
+
+```bash
+kubectl -n monitoring exec alertmanager-monitoring-kube-prometheus-alertmanager-0 -- \
+  cat /etc/alertmanager/config_out/alertmanager.env.yaml | grep -A40 BackendHighErrorRate
+```
+
+### 3. Prometheus Có Metric Backend
+
+```bash
+kubectl -n argocd-test delete pod load --ignore-not-found
+kubectl -n argocd-test run load --image=busybox --restart=Never -- \
+  sh -c "while true; do wget -qO- http://backend:8080/; sleep 0.2; done"
+```
+
+Query Prometheus:
+
+```promql
+flask_http_request_total{namespace="argocd-test"}
+```
+
+Chụp:
+
+```text
+evidence/04-prometheus-query.png
+```
+
+### 4. Test Bad Canary, Alert Email Và Auto-Abort
+
+Sửa `cloud/w9/argocd-test/k8s/backend/backend-deployment.yaml`:
+
+```yaml
+- name: ERROR_RATE
+  value: "0.8"
+- name: VERSION
+  value: "v2-bad"
+```
+
+Commit và push:
+
+```bash
+git add cloud/w9/argocd-test/k8s/backend/backend-deployment.yaml
+git commit -m "test bad backend canary"
+git push
+```
+
+Theo dõi rollout:
+
+```bash
+kubectl argo rollouts get rollout backend -n argocd-test --watch
+```
+
+Chụp các ảnh:
+
+```text
+evidence/05-prometheus-alert-firing.png
+evidence/06-alertmanager-alert.png
+evidence/07-email-received.png
+evidence/08-rollout-analysis-failed.png
+```
+
+Lệnh hỗ trợ chụp auto-abort:
+
+```bash
+kubectl -n argocd-test get analysisrun
+kubectl -n argocd-test describe rollout backend
+```
+
+### 5. Rollback Bằng Git Revert
+
+```bash
+git log --oneline -5
+git revert <COMMIT_TEST_BAD> --no-edit
+git push
+```
+
+Nếu Rollout còn giữ state abort cũ:
+
+```bash
+kubectl argo rollouts retry rollout backend -n argocd-test
+```
+
+Chụp:
+
+```text
+evidence/09-git-revert.png
+evidence/10-rollback-healthy.png
+```
+
 ## Kết Luận Theo Acceptance Criteria
 
 Dự án đáp ứng các yêu cầu chính:
@@ -196,7 +355,7 @@ Dự án đáp ứng các yêu cầu chính:
 - Backend expose Prometheus metrics qua `/metrics`.
 - Prometheus scrape backend bằng `ServiceMonitor`.
 - `PrometheusRule` tạo SLO alert `BackendHighErrorRate`.
-- `AlertmanagerConfig` gửi alert tới email cá nhân qua Gmail SMTP.
+- Secret `alertmanager-config` cấu hình Alertmanager gửi alert tới email cá nhân qua Gmail SMTP.
 - Backend dùng Argo Rollouts canary.
 - `AnalysisTemplate` query Prometheus để auto-abort bad version.
 - Rollback được thực hiện bằng `git revert` và Argo CD sync lại trong dưới 5 phút.

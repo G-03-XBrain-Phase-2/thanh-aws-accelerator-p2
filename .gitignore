@@ -1,0 +1,4 @@
+# Local secret files. Do not commit real credentials.
+cloud/w9/argocd-test/monitoring/alertmanager-config.local.yaml
+cloud/w9/argocd-test/monitoring/*secret*.local.yaml
+*.secret.yaml

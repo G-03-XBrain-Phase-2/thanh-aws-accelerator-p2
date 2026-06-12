@@ -8,5 +8,4 @@ resources:
   - backend-service.yaml
   - servicemonitor.yaml
   - prometheusrule.yaml
-  - alertmanagerconfig.yaml
   - analysis-template.yaml
