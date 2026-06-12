@@ -14,8 +14,8 @@ spec:
       - alertname
       - namespace
       - service
-    groupWait: 30s
-    groupInterval: 5m
+    groupWait: 10s
+    groupInterval: 30s
     repeatInterval: 1h
   receivers:
     - name: backend-email

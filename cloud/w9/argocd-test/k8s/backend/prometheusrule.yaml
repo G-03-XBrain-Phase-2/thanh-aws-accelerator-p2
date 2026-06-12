@@ -18,10 +18,10 @@ spec:
               /
               clamp_min((sum(rate(flask_http_request_total{namespace="argocd-test"}[5m])) or vector(0)), 1)
             ) > 0.05
-          for: 2m
+          for: 30s
           labels:
             severity: warning
             service: backend
           annotations:
             summary: "Backend error rate is above 5%"
-            description: "More than 5% of backend HTTP requests are failing for at least 2 minutes."
+            description: "More than 5% of backend HTTP requests are failing."

@@ -8,9 +8,9 @@ metadata:
 spec:
   metrics:
     - name: backend-error-rate
-      interval: 30s
-      count: 6
-      failureLimit: 4
+      interval: 20s
+      count: 4
+      failureLimit: 3
       successCondition: result[0] < 0.05
       failureCondition: result[0] >= 0.05
       provider:
