@@ -98,11 +98,12 @@ Backend expose `/metrics` thành công và `ServiceMonitor/backend` đã giúp P
 Kết quả ghi nhận:
 
 - Prometheus đã load rule group `backend.slo`.
-- Alert `BackendHighErrorRate` chuyển sang `Firing` khi backend lỗi cao.
+- Alert `BackendHighErrorRate` chuyển sang trạng thái `FIRING`.
+- Giá trị error rate vượt ngưỡng `0.05`, đúng với điều kiện của `PrometheusRule`.
 
 Ý nghĩa:
 
-`PrometheusRule/backend-slo-rules` tính error-rate từ metric `flask_http_request_total`. Khi tỉ lệ HTTP 5xx vượt 5% trong thời gian cấu hình, alert được kích hoạt.
+`PrometheusRule/backend-slo-rules` tính tỉ lệ lỗi từ metric `flask_http_request_total`. Khi backend trả nhiều HTTP 5xx hơn 5%, Prometheus kích hoạt alert `BackendHighErrorRate`.
 
 ## 6. Alertmanager Nhận Alert Và Gửi Email
 
@@ -116,6 +117,7 @@ Kết quả ghi nhận:
 
 Kết quả ghi nhận:
 
+- Prometheus đã gửi alert `BackendHighErrorRate` sang Alertmanager.
 - Alertmanager nhận alert `BackendHighErrorRate`.
 - Email cá nhân nhận được cảnh báo từ Alertmanager.
 
