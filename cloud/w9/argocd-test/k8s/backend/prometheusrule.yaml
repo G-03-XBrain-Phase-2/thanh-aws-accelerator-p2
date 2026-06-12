@@ -18,7 +18,7 @@ spec:
               /
               clamp_min((sum(rate(flask_http_request_total{namespace="argocd-test"}[5m])) or vector(0)), 1)
             ) > 0.05
-          for: 10s
+          for: 2m
           labels:
             severity: warning
             service: backend

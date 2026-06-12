@@ -9,8 +9,8 @@ spec:
   metrics:
     - name: backend-error-rate
       interval: 30s
-      count: 3
-      failureLimit: 1
+      count: 6
+      failureLimit: 4
       successCondition: result[0] < 0.05
       failureCondition: result[0] >= 0.05
       provider:
