@@ -253,16 +253,16 @@ Query:
 
 ```promql
 (
-  (sum(rate(flask_http_request_total{namespace="argocd-test", status=~"5.."}[5m])) or vector(0))
+  (sum(rate(flask_http_request_total{namespace="argocd-test", status=~"5.."}[1m])) or vector(0))
   /
-  clamp_min((sum(rate(flask_http_request_total{namespace="argocd-test"}[5m])) or vector(0)), 1)
+  clamp_min((sum(rate(flask_http_request_total{namespace="argocd-test"}[1m])) or vector(0)), 1)
 ) > 0.05
 ```
 
 Ý nghĩa:
 
 ```text
-Nếu HTTP 5xx > 5% tổng request thì alert fire.
+Nếu HTTP 5xx > 5% tổng request trong cửa sổ 1 phút thì alert fire. Rule có `for: 30s`, nên trong lab chỉ cần lỗi giữ hơn khoảng 30 giây là alert có thể chuyển sang `Firing`.
 ```
 
 `or vector(0)` dùng để tránh query trả rỗng khi chưa có lỗi 5xx. Nếu query rỗng, Argo Rollouts có thể lỗi kiểu `slice index out of range`.

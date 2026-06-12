@@ -36,7 +36,9 @@ Argo CD đang lấy manifest từ Git repository và tự động đồng bộ r
 
 Ảnh minh chứng:
 
-![Argo CD backend tree](evidence/02-argocd-tree.png)
+![Argo CD backend tree](evidence/02-argocd-tree-1.png)
+![Argo CD backend tree](evidence/02-argocd-tree-2.png)
+![Argo CD backend tree](evidence/02-argocd-tree-3.png)
 
 Kết quả ghi nhận:
 
@@ -95,11 +97,12 @@ Backend expose `/metrics` thành công và `ServiceMonitor/backend` đã giúp P
 
 Kết quả ghi nhận:
 
-Alert `BackendHighErrorRate` chuyển sang trạng thái `Firing` khi backend có error rate cao.
+- Prometheus đã load rule group `backend.slo`.
+- Alert `BackendHighErrorRate` chuyển sang `Firing` khi backend lỗi cao.
 
 Ý nghĩa:
 
-`PrometheusRule/backend-slo-rules` hoạt động đúng. Khi tỉ lệ HTTP 5xx của backend vượt ngưỡng 5% trong thời gian cấu hình, Prometheus tạo alert.
+`PrometheusRule/backend-slo-rules` tính error-rate từ metric `flask_http_request_total`. Khi tỉ lệ HTTP 5xx vượt 5% trong thời gian cấu hình, alert được kích hoạt.
 
 ## 6. Alertmanager Nhận Alert Và Gửi Email
 
@@ -176,7 +179,9 @@ Các ảnh minh chứng được đặt trong thư mục `evidence/`:
 
 ```text
 evidence/01-argocd-apps.png
-evidence/02-argocd-tree.png
+evidence/02-argocd-tree-1.png
+evidence/02-argocd-tree-2.png
+evidence/02-argocd-tree-3.png
 evidence/03-k8s-resources.png
 evidence/04-prometheus-query.png
 evidence/05-prometheus-alert-firing.png
