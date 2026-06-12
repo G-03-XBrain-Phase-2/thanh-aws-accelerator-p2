@@ -27,7 +27,7 @@ spec:
                 name: backend-config
           env:
             - name: ERROR_RATE
-              value: "0.8"
+              value: "0"
             - name: VERSION
               value: "v1"
           readinessProbe:
