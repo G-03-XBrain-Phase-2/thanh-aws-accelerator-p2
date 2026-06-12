@@ -20,11 +20,11 @@ spec:
   receivers:
     - name: backend-email
       emailConfigs:
-        - to: "lenguyennhatthanh72@example.com"
-          from: "lenguyennhatthanh72@example.com"
+        - to: "lenguyennhatthanh72@gmail.com"
+          from: "lenguyennhatthanh72@gmail.com"
           smarthost: "smtp.gmail.com:587"
-          authUsername: "lenguyennhatthanh72@example.com"
-          authIdentity: "lenguyennhatthanh72@example.com"
+          authUsername: "lenguyennhatthanh72@gmail.com"
+          authIdentity: "lenguyennhatthanh72@gmail.com"
           authPassword:
             name: alertmanager-email-secret
             key: smtp-password
