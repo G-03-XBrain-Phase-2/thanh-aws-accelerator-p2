@@ -1404,6 +1404,243 @@ kubectl -n argocd-test port-forward svc/backend 8080:8080
 curl http://localhost:8080/metrics
 ```
 
+### Argo CD Kẹt `Suspended`, `OutOfSync`, Resource `Missing`
+
+Triệu chứng đã gặp trong lab:
+
+```text
+APP HEALTH: Suspended
+SYNC STATUS: OutOfSync
+LAST SYNC: Syncing
+waiting for healthy state of argoproj.io/Rollout/backend
+```
+
+Một số resource trong UI báo:
+
+```text
+Resource not found in cluster: v1/Secret:alertmanager-email-secret
+Resource not found in cluster: argoproj.io/v1alpha1/AnalysisTemplate:backend-error-rate
+Resource not found in cluster: monitoring.coreos.com/v1/PrometheusRule:backend-slo-rules
+Resource not found in cluster: monitoring.coreos.com/v1alpha1/AlertmanagerConfig:backend-email-alerts
+```
+
+Nguyên nhân trong case này:
+
+```text
+1. Rollout live đang chạy spec cũ có pause.
+2. Rollout pause tại CanaryPauseStep.
+3. Argo CD chờ Rollout healthy nên sync operation bị kẹt.
+4. Các resource ở wave sau chưa được apply.
+5. UI hiển thị resource Missing.
+```
+
+Event thường thấy:
+
+```text
+Rollout step 1/5 completed (setWeight: 25)
+Rollout is paused (CanaryPauseStep)
+```
+
+Trong Git hiện tại, Rollout đã được sửa để không còn pause thủ công:
+
+```text
+setWeight 25
+analysis backend-error-rate
+setWeight 50
+analysis backend-error-rate
+setWeight 100
+```
+
+Nhưng cluster có thể vẫn kẹt sync operation cũ. Cách xử lý:
+
+```bash
+# Xóa operation sync đang kẹt trên Application
+kubectl -n argocd patch application argocd-test-be --type merge -p '{"operation":null}'
+
+# Bắt Argo CD đọc lại Git thật kỹ
+kubectl -n argocd annotate application argocd-test-be argocd.argoproj.io/refresh=hard --overwrite
+```
+
+Sau đó vào UI Argo CD bấm `SYNC` lại app `argocd-test-be`.
+
+Nếu có Argo CD CLI:
+
+```bash
+argocd app terminate-op argocd-test-be
+argocd app sync argocd-test-be
+```
+
+Check lại:
+
+```bash
+kubectl -n argocd-test get secret alertmanager-email-secret
+kubectl -n argocd-test get analysistemplate backend-error-rate
+kubectl -n argocd-test get prometheusrule backend-slo-rules
+kubectl -n argocd-test get alertmanagerconfig backend-email-alerts
+kubectl -n argocd-test get rollout backend
+kubectl -n argocd-test get analysisrun
+```
+
+Lưu ý: `AnalysisRun` không phải lúc nào cũng tồn tại. Nó chỉ được tạo khi Rollout thật sự chạy một revision mới và đi tới step `analysis`.
+
+Nếu vẫn kẹt, xem event:
+
+```bash
+kubectl -n argocd-test describe rollout backend
+```
+
+Nếu thấy vẫn đang pause ở canary step cũ, có thể tạm promote để thoát:
+
+```bash
+kubectl argo rollouts promote backend -n argocd-test
+```
+
+Nếu chưa cài plugin `kubectl argo rollouts`, xem mục bên dưới.
+
+### `kubectl argo` Báo Unknown Command
+
+Lỗi:
+
+```text
+error: unknown command "argo" for "kubectl"
+```
+
+Nghĩa là máy chưa cài plugin Argo Rollouts cho kubectl.
+
+Cài trên Linux/WSL:
+
+```bash
+curl -LO https://github.com/argoproj/argo-rollouts/releases/latest/download/kubectl-argo-rollouts-linux-amd64
+chmod +x kubectl-argo-rollouts-linux-amd64
+sudo mv kubectl-argo-rollouts-linux-amd64 /usr/local/bin/kubectl-argo-rollouts
+```
+
+Kiểm tra:
+
+```bash
+kubectl argo rollouts version
+```
+
+Sau đó dùng:
+
+```bash
+kubectl argo rollouts get rollout backend -n argocd-test --watch
+kubectl argo rollouts promote backend -n argocd-test
+kubectl argo rollouts abort backend -n argocd-test
+```
+
+Nếu không muốn cài plugin, vẫn có thể dùng kubectl thường:
+
+```bash
+kubectl -n argocd-test get rollout backend -o yaml
+kubectl -n argocd-test describe rollout backend
+kubectl -n argocd-test get analysisrun
+kubectl -n argocd-test describe analysisrun
+```
+
+### Resource Missing Nhưng File Đã Có Trong Git
+
+Checklist:
+
+```bash
+# 1. Git local có commit mới chưa?
+git log --oneline -5
+git status -sb
+
+# 2. Commit đã push lên origin/main chưa?
+git branch -vv
+
+# 3. Argo CD đang đọc branch nào?
+kubectl -n argocd get application argocd-test-be -o yaml | grep -A5 targetRevision
+
+# 4. Argo CD hard refresh
+kubectl -n argocd annotate application argocd-test-be argocd.argoproj.io/refresh=hard --overwrite
+
+# 5. Sync lại app
+# UI: bấm SYNC
+# hoặc CLI:
+argocd app sync argocd-test-be
+```
+
+Nếu Git đã đúng, branch đã push, nhưng resource vẫn Missing, thường là do:
+
+- Sync operation đang kẹt.
+- CRD chưa có.
+- Resource ở wave sau chưa được apply vì wave trước chưa Healthy.
+- Argo CD đang cache repo cũ, cần hard refresh.
+
+### Kiểm Tra CRD Cần Cho Lab
+
+Backend dùng các CRD:
+
+```text
+Rollout
+AnalysisTemplate
+ServiceMonitor
+PrometheusRule
+AlertmanagerConfig
+```
+
+Kiểm tra:
+
+```bash
+kubectl api-resources | grep -i rollout
+kubectl api-resources | grep -i analysistemplate
+kubectl api-resources | grep -i servicemonitor
+kubectl api-resources | grep -i prometheusrule
+kubectl api-resources | grep -i alertmanagerconfig
+```
+
+Nếu thiếu Rollout/AnalysisTemplate:
+
+```bash
+helm repo add argo https://argoproj.github.io/argo-helm
+helm repo update
+helm install argo-rollouts argo/argo-rollouts -n argo-rollouts --create-namespace
+```
+
+Nếu thiếu ServiceMonitor/PrometheusRule/AlertmanagerConfig:
+
+```bash
+helm list -n monitoring
+```
+
+Phải có kube-prometheus-stack. Nếu chưa có, cài kube-prometheus-stack theo lab observability.
+
+### Kiểm Tra Tên Service Prometheus Cho AnalysisTemplate
+
+`analysis-template.yaml` đang dùng:
+
+```yaml
+address: http://monitoring-kube-prometheus-prometheus.monitoring.svc:9090
+```
+
+Nếu service Prometheus của bạn tên khác, analysis sẽ fail hoặc không query được.
+
+Kiểm tra:
+
+```bash
+kubectl -n monitoring get svc | grep prometheus
+```
+
+Sau đó sửa `address` cho đúng:
+
+```yaml
+address: http://<prometheus-service-name>.monitoring.svc:9090
+```
+
+Ví dụ:
+
+```yaml
+address: http://monitoring-kube-prometheus-prometheus.monitoring.svc:9090
+```
+
+hoặc:
+
+```yaml
+address: http://prometheus-operated.monitoring.svc:9090
+```
+
 ## Trạng Thái Challenge Và Hướng Mở Rộng
 
 Project hiện đã có các thành phần chính của challenge "Ship Smartly":
