@@ -1,0 +1,14 @@
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: K8sDisallowPrivileged
+metadata:
+  name: pods-must-not-be-privileged
+spec:
+  enforcementAction: deny
+
+  match:
+    namespaces:
+      - w10-rbac
+    kinds:
+      - apiGroups: [""]
+        kinds:
+          - Pod

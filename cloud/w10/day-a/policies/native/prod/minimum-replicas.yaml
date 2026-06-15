@@ -1,0 +1,38 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: deployments-minimum-replicas
+spec:
+  failurePolicy: Fail
+
+  matchConstraints:
+    resourceRules:
+      - apiGroups:
+          - apps
+        apiVersions:
+          - v1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - deployments
+
+  validations:
+    - expression: "has(object.spec.replicas) && object.spec.replicas >= 2"
+      message: "Deployment must have at least 2 replicas"
+
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: deployments-minimum-replicas-binding
+spec:
+  policyName: deployments-minimum-replicas
+
+  validationActions:
+    - Deny
+
+  matchResources:
+    namespaceSelector:
+      matchLabels:
+        purpose: rbac-lab

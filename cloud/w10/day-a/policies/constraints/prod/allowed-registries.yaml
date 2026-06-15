@@ -1,0 +1,19 @@
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: K8sAllowedRegistries
+metadata:
+  name: pods-must-use-approved-registries
+spec:
+  enforcementAction: deny
+
+  match:
+    namespaces:
+      - w10-rbac
+    kinds:
+      - apiGroups: [""]
+        kinds:
+          - Pod
+
+  parameters:
+    registries:
+      - nginx
+      - company.example.com/

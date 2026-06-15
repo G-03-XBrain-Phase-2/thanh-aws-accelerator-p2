@@ -1,0 +1,40 @@
+apiVersion: templates.gatekeeper.sh/v1
+kind: ConstraintTemplate
+metadata:
+  name: k8sallowedregistries
+spec:
+  crd:
+    spec:
+      names:
+        kind: K8sAllowedRegistries
+      validation:
+        openAPIV3Schema:
+          type: object
+          properties:
+            registries:
+              type: array
+              items:
+                type: string
+
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      code:
+        - engine: Rego
+          source:
+            version: "v1"
+            rego: |
+              package k8sallowedregistries
+
+              violation contains {"msg": msg} if {
+                container := input.review.object.spec.containers[_]
+                not registry_allowed(container.image)
+                msg := sprintf(
+                  "container %q uses image from an unapproved registry: %q",
+                  [container.name, container.image]
+                )
+              }
+
+              registry_allowed(image) if {
+                registry := input.parameters.registries[_]
+                startswith(image, registry)
+              }

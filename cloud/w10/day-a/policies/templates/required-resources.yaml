@@ -1,0 +1,56 @@
+apiVersion: templates.gatekeeper.sh/v1
+kind: ConstraintTemplate
+metadata:
+  name: k8srequiredresources
+spec:
+  crd:
+    spec:
+      names:
+        kind: K8sRequiredResources
+
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      code:
+        - engine: Rego
+          source:
+            version: "v1"
+            rego: |
+              package k8srequiredresources
+
+              violation contains {
+                "msg": msg
+              } if {
+                container := input.review.object.spec.containers[_]
+                missing_request(container)
+                msg := sprintf(
+                  "container %q must define CPU and memory requests",
+                  [container.name]
+                )
+              }
+
+              violation contains {
+                "msg": msg
+              } if {
+                container := input.review.object.spec.containers[_]
+                missing_limit(container)
+                msg := sprintf(
+                  "container %q must define CPU and memory limits",
+                  [container.name]
+                )
+              }
+
+              missing_request(container) if {
+                not container.resources.requests.cpu
+              }
+
+              missing_request(container) if {
+                not container.resources.requests.memory
+              }
+
+              missing_limit(container) if {
+                not container.resources.limits.cpu
+              }
+
+              missing_limit(container) if {
+                not container.resources.limits.memory
+              }
