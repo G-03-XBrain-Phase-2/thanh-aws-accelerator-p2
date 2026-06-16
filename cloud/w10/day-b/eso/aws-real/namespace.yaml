@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: w10-day-b
+  labels:
+    purpose: secrets-supply-chain-lab
+    environment: prod

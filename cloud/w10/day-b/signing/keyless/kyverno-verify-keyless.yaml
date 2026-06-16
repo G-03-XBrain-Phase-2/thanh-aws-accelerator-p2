@@ -1,0 +1,26 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: verify-signed-images-keyless
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+    - name: verify-github-actions-keyless-signature
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+      verifyImages:
+        - imageReferences:
+            - "ghcr.io/G-03-XBrain-Phase-2/thanh-aws-accelerator-p2/w10-day-b-secret-reader:*"
+          mutateDigest: true
+          required: true
+          verifyDigest: true
+          attestors:
+            - count: 1
+              entries:
+                - keyless:
+                    issuer: https://token.actions.githubusercontent.com
+                    subject: repo:G-03-XBrain-Phase-2/thanh-aws-accelerator-p2:ref:refs/heads/main

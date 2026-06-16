@@ -1,0 +1,32 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: verify-signed-images-keybased
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+    - name: verify-cosign-keybased-signature
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+      verifyImages:
+        - imageReferences:
+            - "609356923174.dkr.ecr.ap-southeast-1.amazonaws.com/w10-day-b-secret-reader:*"
+          imageRegistryCredentials:
+            secrets:
+              - ecr-regcred
+          mutateDigest: true
+          required: true
+          verifyDigest: true
+          attestors:
+            - count: 1
+              entries:
+                - keys:
+                    publicKeys: |-
+                      -----BEGIN PUBLIC KEY-----
+                      MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEGM4hm/w6jgMp4BzNPRzuvrr7qLnK
+                      fPJdqRh65p8B5IrRfQVQtnzmwr4Z5HKQ1vHCuWpx3YvQFgmmkB0XR9jqWQ==
+                      -----END PUBLIC KEY-----
