@@ -15,7 +15,7 @@ jobs:
       id-token: write
 
     env:
-      IMAGE: ghcr.io/${{ github.repository }}/w10-day-b-secret-reader:${{ github.sha }}
+      IMAGE: ghcr.io/g-03-xbrain-phase-2/thanh-aws-accelerator-p2/w10-day-b-secret-reader:${{ github.sha }}
 
     steps:
       - name: Checkout repository
