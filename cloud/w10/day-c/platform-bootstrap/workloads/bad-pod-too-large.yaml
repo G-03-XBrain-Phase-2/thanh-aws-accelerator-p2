@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: quota-bad-too-large
+  namespace: platform-prod
+  labels:
+    app: quota-bad-too-large
+    environment: prod
+spec:
+  containers:
+    - name: app
+      image: nginx:1.26-alpine
+      resources:
+        requests:
+          cpu: "2"
+          memory: 2Gi
+        limits:
+          cpu: "2"
+          memory: 2Gi

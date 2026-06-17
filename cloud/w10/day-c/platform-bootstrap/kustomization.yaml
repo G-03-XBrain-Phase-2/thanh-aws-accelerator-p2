@@ -1,0 +1,8 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - namespaces/platform-prod.yaml
+  - quotas/platform-prod-quota.yaml
+  - limits/platform-prod-limitrange.yaml
+  - workloads/good-pod.yaml

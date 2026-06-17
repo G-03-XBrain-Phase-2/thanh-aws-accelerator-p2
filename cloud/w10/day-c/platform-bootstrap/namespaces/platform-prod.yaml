@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: platform-prod
+  labels:
+    environment: prod
+    owner: platform-team
+    purpose: w10-platform-integration

@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: resilient-app
+  namespace: platform-prod
+  labels:
+    app: resilient-app
+    environment: prod
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: resilient-app
+  template:
+    metadata:
+      labels:
+        app: resilient-app
+        environment: prod
+    spec:
+      containers:
+        - name: app
+          image: nginx:1.26-alpine
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 300m
+              memory: 256Mi

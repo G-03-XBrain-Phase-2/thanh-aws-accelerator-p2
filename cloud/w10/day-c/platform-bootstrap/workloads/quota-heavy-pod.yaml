@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: quota-heavy-pod
+  namespace: platform-prod
+  labels:
+    app: quota-heavy-pod
+    environment: prod
+spec:
+  containers:
+    - name: app
+      image: nginx:1.26-alpine
+      resources:
+        requests:
+          cpu: "1"
+          memory: 1Gi
+        limits:
+          cpu: "1"
+          memory: 1Gi
