@@ -23,7 +23,7 @@ spec:
         - name: ghcr-regcred
       containers:
       - name: api
-        image: ghcr.io/g-03-xbrain-phase-2/w10-api:v0.0.1
+        image: ghcr.io/g-03-xbrain-phase-2/w10-api:v0.0.1-a1bf92e
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8080
