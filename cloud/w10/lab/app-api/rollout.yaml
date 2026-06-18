@@ -19,6 +19,8 @@ spec:
       labels:
         app: api
     spec:
+      imagePullSecrets:
+        - name: ghcr-regcred
       containers:
       - name: api
         image: ghcr.io/g-03-xbrain-phase-2/w10-api:v0.0.1
