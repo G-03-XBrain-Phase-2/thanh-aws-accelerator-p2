@@ -2,22 +2,22 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: api
-  namespace: argocd
-  annotations:
-    argocd.argoproj.io/sync-wave: "2"
+    name: api
+    namespace: argocd
+    annotations:
+        argocd.argoproj.io/sync-wave: "2"
 spec:
-  project: default
-  source:
-    repoURL: https://github.com/Vuong-Bach/temp.git
-    path: app-api
-    targetRevision: main
-  destination:
-    server: https://kubernetes.default.svc
-    namespace: demo
-  syncPolicy:
-    automated:
-      prune: true
-      selfHeal: true
-    syncOptions:
-    - ServerSideApply=true
+    project: default
+    source:
+        repoURL: https://github.com/G-03-XBrain-Phase-2/thanh-aws-accelerator-p2/tree/main/cloud/w10/lab.git
+        path: app-api
+        targetRevision: main
+    destination:
+        server: https://kubernetes.default.svc
+        namespace: demo
+    syncPolicy:
+        automated:
+            prune: true
+            selfHeal: true
+        syncOptions:
+            - ServerSideApply=true
