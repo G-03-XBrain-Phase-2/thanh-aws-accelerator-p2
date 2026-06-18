@@ -15,15 +15,15 @@ spec:
     helm:
       values: |
         prometheusOperator:
-        admissionWebhooks:
-          patch:
-            resources:
-              limits:
-                cpu: 100m
-                memory: 128Mi
-              requests:
-                cpu: 50m
-                memory: 64Mi
+          admissionWebhooks:
+            patch:
+              resources:
+                limits:
+                  cpu: 100m
+                  memory: 128Mi
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
         prometheus:
           prometheusSpec:
             serviceMonitorSelectorNilUsesHelmValues: false
