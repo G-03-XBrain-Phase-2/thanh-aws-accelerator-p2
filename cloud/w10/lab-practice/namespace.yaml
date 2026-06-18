@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: w10-lab-practice
+  labels:
+    environment: lab-practice
+    purpose: w10-risk-cleanup-practice
