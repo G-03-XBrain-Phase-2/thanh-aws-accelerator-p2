@@ -5,10 +5,15 @@ metadata:
   name: developer
 rules:
 - apiGroups: [""]
-  resources: ["pods, configmaps, services"]
+  resources:
+  - pods
+  - configmaps
+  - services
   verbs: ["get", "list", "create", "update", "watch", "patch", "delete"]
 - apiGroups: ["apps"]
-  resources: ["deployments, replicasets"]
+  resources:
+    - deployments
+    - replicasets
   verbs: ["get", "list", "create", "update", "watch", "patch", "delete"]
 
 --- 
@@ -18,10 +23,17 @@ metadata:
   name: sre
 rules:
 - apiGroups: [""]
-  resources: ["pods, configmaps, services, pods/log, events"]
+  resources: 
+  - pods
+  - configmaps
+  - services
+  - pods/log
+  - events
   verbs: ["get", "list", "watch", "delete"]
 - apiGroups: ["apps"]
-  resources: ["deployments, replicasets"]
+  resources:
+    - deployments
+    - replicasets
   verbs: ["get", "list", "watch", "delete"]
   
 --- 
@@ -31,9 +43,16 @@ metadata:
   name: viewer
 rules:
 - apiGroups: [""]
-  resources: ["pods, configmaps, services, pods/log, events"]
-  verbs: ["get", "list", "watch", "delete"]
+  resources: 
+  - pods
+  - configmaps
+  - services
+  - pods/log
+  - events
+  verbs: ["get", "list", "watch"]
 - apiGroups: ["apps"]
-  resources: ["deployments, replicasets"]
-  verbs: ["get", "list", "watch", "delete"]
+  resources:
+    - deployments
+    - replicasets
+  verbs: ["get", "list", "watch"]
 
