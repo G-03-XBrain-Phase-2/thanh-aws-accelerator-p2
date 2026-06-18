@@ -21,7 +21,7 @@ spec:
     spec:
       containers:
       - name: api
-        image: ghcr.io/lennhatthanh/w10-api:0.0.1
+        image: ghcr.io/G-03-XBrain-Phase-2/w10-api:0.0.1
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8080
