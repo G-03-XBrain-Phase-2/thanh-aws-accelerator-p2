@@ -73,12 +73,25 @@ kubectl -n argocd get secret argocd-initial-admin-secret \
   -o jsonpath='{.data.password}' | base64 -d; echo
 ```
 
+### STEP PHẢI LÀM ĐỂ APP API CHẠY ĐƯỢC
+Step 1: Phải build image:
+- Dùng Github Action tại `.github/workflows/build-push.yml` để build image.
+- Hoặc build local và đẩy lên k8s
+
+Step 2: Phải đổi image name dòng `24` trong file `app-api/rollout.yaml` thành image các bạn đã build
+
+> Note 1: Fork repo thì sẽ không active được Github Action
+
+> Note 2: Nên clone repo template này về sau đó đẩy lên 1 repo của các bạn
+
+> Note 3: Phải đổi đúng image mà các bạn đã build nhé
+
 ### 4. Deploy App of Apps
 ```bash
 kubectl apply -f argocd/root.yaml
 ```
 
-### 5. Setup Email Alert (Optional)
+### 5. Setup Email Alert
 ```bash
 # Follow instructions in app-alert/README.md
 cp app-alert/email-secret.yaml.example app-alert/email-secret.yaml
