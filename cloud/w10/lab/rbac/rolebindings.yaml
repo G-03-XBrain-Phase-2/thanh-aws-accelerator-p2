@@ -30,7 +30,6 @@ roleRef:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  namespace: demo
   name: carol-viewer
 subjects:
 - kind: User
