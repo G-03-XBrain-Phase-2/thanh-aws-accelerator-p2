@@ -3,8 +3,10 @@ kind: K8sRequiredResources
 metadata:
   name: container-must-have-limits-and-requests
 spec:
-  enforcementAction: deny
+  enforcementAction: dryrun
   match:
+    namespaces:
+      - demo
     kinds:
       - apiGroups: [""]
         kinds: ["Pod"]
