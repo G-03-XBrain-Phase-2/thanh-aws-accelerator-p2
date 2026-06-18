@@ -6,9 +6,9 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/G-03-XBrain-Phase-2/thanh-aws-accelerator-p2/cloud/w10/lab.git
+    repoURL: https://github.com/G-03-XBrain-Phase-2/thanh-aws-accelerator-p2.git
     targetRevision: main
-    path: rbac
+    path: cloud/w10/lab/rbac
   destination:
     server: https://kubernetes.default.svc
     namespace: demo

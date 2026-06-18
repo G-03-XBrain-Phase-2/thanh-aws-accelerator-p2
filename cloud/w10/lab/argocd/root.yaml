@@ -8,9 +8,9 @@ metadata:
 spec:
     project: default
     source:
-        repoURL: https://github.com/G-03-XBrain-Phase-2/thanh-aws-accelerator-p2/tree/main/cloud/w10/lab.git
-        path: argocd/apps
-        targetRevision: main
+      repoURL: https://github.com/G-03-XBrain-Phase-2/thanh-aws-accelerator-p2.git
+      path: cloud/w10/lab/argocd/apps
+      targetRevision: main
     destination:
         server: https://kubernetes.default.svc
         namespace: argocd
