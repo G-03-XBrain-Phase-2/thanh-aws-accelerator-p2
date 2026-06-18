@@ -10,7 +10,9 @@ on:
     - 'cloud/w10/lab/argocd/**'
     - 'cloud/w10/lab/rbac/**'
     - 'cloud/w10/lab/gatekeeper/**'
-    # W10 se them: rbac/**, gatekeeper/**, eso/**, signing/**
+    - 'cloud/w10/lab/eso/**'
+    - 'cloud/w10/lab/policies/**'
+    - 'cloud/w10/lab/signing/**'
 
 jobs:
   validate:
@@ -35,4 +37,6 @@ jobs:
           cloud/w10/lab/app-common/ \
           cloud/w10/lab/argocd/ \
           cloud/w10/lab/rbac/ \
-          cloud/w10/lab/gatekeeper/
+          cloud/w10/lab/gatekeeper/ \
+          cloud/w10/lab/eso/ \
+          cloud/w10/lab/policies/

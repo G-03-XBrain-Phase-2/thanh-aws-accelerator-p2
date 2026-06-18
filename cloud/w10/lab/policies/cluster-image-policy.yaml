@@ -1,0 +1,16 @@
+# Sigstore Policy Controller admission policy.
+# Public key reused from W10 Day B key-based signing lab.
+apiVersion: policy.sigstore.dev/v1beta1
+kind: ClusterImagePolicy
+metadata:
+  name: w10-api-must-be-signed
+spec:
+  images:
+    - glob: ghcr.io/g-03-xbrain-phase-2/w10-api*
+  authorities:
+    - key:
+        data: |
+          -----BEGIN PUBLIC KEY-----
+          MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEGM4hm/w6jgMp4BzNPRzuvrr7qLnK
+          fPJdqRh65p8B5IrRfQVQtnzmwr4Z5HKQ1vHCuWpx3YvQFgmmkB0XR9jqWQ==
+          -----END PUBLIC KEY-----
