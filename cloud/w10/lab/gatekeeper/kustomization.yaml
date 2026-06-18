@@ -6,7 +6,9 @@ resources:
   - templates/require-limits.yaml
   - templates/disallow-root-user.yaml
   - templates/disallow-host-network.yaml
+  - templates/limit-replicas.yaml
   - constraints/disallow-latest-tag.yaml
   - constraints/require-limits.yaml
   - constraints/disallow-root-user.yaml
   - constraints/disallow-host-network.yaml
+  - constraints/limit-replicas.yaml
