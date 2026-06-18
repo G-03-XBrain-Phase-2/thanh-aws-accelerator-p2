@@ -5,6 +5,9 @@ metadata:
 spec:
   enforcementAction: deny
   match:
+    namespaces:
+      - demo
+      - payments
     kinds:
       - apiGroups: [""]
         kinds: ["Pod"]

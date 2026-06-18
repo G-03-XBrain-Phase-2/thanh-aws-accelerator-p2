@@ -1,0 +1,17 @@
+# Apply manually to prove existing Gatekeeper guardrail blocks payments violations.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: payments-bad-latest
+  namespace: payments
+spec:
+  containers:
+    - name: bad
+      image: nginx:latest
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+      resources:
+        limits:
+          cpu: 100m
+          memory: 128Mi

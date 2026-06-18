@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: payments
+  labels:
+    tenant: payments
+    kubernetes.io/metadata.name: payments
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"

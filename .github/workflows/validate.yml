@@ -13,6 +13,9 @@ on:
     - 'cloud/w10/lab/eso/**'
     - 'cloud/w10/lab/policies/**'
     - 'cloud/w10/lab/signing/**'
+    - 'cloud/w10/lab/tenants/**'
+    - 'cloud/w10/lab/apps/**'
+    - 'cloud/w10/lab/evidence/**'
 
 jobs:
   validate:
@@ -39,4 +42,7 @@ jobs:
           cloud/w10/lab/rbac/ \
           cloud/w10/lab/gatekeeper/ \
           cloud/w10/lab/eso/ \
-          cloud/w10/lab/policies/
+          cloud/w10/lab/policies/ \
+          cloud/w10/lab/tenants/ \
+          cloud/w10/lab/apps/ \
+          cloud/w10/lab/evidence/

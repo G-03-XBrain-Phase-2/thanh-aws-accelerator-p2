@@ -1,0 +1,14 @@
+# Apply manually to prove LimitRange defaults resources for a pod that omits them.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: payments-defaulted
+  namespace: payments
+spec:
+  containers:
+    - name: defaulted
+      image: busybox:1.36
+      command: ["sh", "-c", "sleep 3600"]
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
