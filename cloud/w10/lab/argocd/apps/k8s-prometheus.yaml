@@ -15,8 +15,11 @@ spec:
     helm:
       values: |
         prometheusOperator:
+          enabled: true
           admissionWebhooks:
+            enabled: true
             patch:
+              enabled: true
               resources:
                 limits:
                   cpu: 100m
