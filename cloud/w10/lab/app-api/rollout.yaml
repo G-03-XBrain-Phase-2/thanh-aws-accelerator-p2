@@ -33,6 +33,10 @@ spec:
           value: "v0.0.1"
         - name: ERROR_RATE
           value: "0"
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          allowPrivilegeEscalation: false
         livenessProbe:
           httpGet:
             path: /healthz
@@ -44,6 +48,9 @@ spec:
             port: 8080
           initialDelaySeconds: 3
         resources:
+          requests:
+            cpu: 100m
+            memory: 64Mi
           limits:
             cpu: 200m
             memory: 128Mi
