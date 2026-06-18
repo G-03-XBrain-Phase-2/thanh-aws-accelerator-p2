@@ -10,7 +10,7 @@ spec:
     project: default
     source:
         repoURL: https://github.com/G-03-XBrain-Phase-2/thanh-aws-accelerator-p2.git
-        path: cloud/w10/lab/app-arlert
+        path: cloud/w10/lab/app-alert
         targetRevision: main
     destination:
         server: https://kubernetes.default.svc
