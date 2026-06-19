@@ -5,10 +5,16 @@ metadata:
   namespace: payments
 rules:
   - apiGroups: [""]
-    resources: ["pods", "pods/log", "services", "configmaps"]
+    resources: 
+    - pods
+    - pods/log
+    - services
+    - configmaps
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
   - apiGroups: ["apps"]
-    resources: ["deployments", "replicasets"]
+    resources: 
+      - deployments 
+      - replicasets
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
     
 ---
