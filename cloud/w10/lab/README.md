@@ -2195,7 +2195,455 @@ Xem diff, events, application conditions, repo path, targetRevision, và resourc
 
 ---
 
-## 18. Câu Tóm Tắt Khi Phỏng Vấn
+## 18. Incident Log - Lỗi Đã Gặp Và Cách Fix
+
+Phần này ghi lại đúng các lỗi đã gặp trong lúc chạy lab để lần sau debug nhanh hơn. Đây là phần rất quan trọng, vì production không chỉ cần YAML đúng mà còn cần biết cluster hỏng ở đâu và phục hồi thế nào.
+
+### 18.1 ArgoCD `ComparisonError` khi list CRD/openapi
+
+Lỗi đã gặp:
+
+```text
+ComparisonError
+Failed to load live state
+failed to get cluster info for "https://kubernetes.default.svc"
+failed to list resources: stream error
+INTERNAL_ERROR
+```
+
+Hoặc:
+
+```text
+failed to load open api schema
+Get "https://10.96.0.1:443/openapi/v2?timeout=32s": context deadline exceeded
+```
+
+Ý nghĩa:
+
+```text
+ArgoCD không đọc được live state từ Kubernetes API server.
+Đây không phải lỗi YAML đầu tiên cần nghi.
+Gốc thường là API server nghẽn, control plane thiếu RAM/CPU, hoặc admission webhook timeout.
+```
+
+Lệnh kiểm tra:
+
+```bash
+kubectl get --raw=/readyz?verbose
+minikube status
+docker stats --no-stream minikube
+kubectl get pods -n argocd -o wide
+```
+
+Trong lần lỗi này, `minikube status` báo:
+
+```text
+apiserver: Stopped
+```
+
+Và Docker báo container minikube gần chạm trần:
+
+```text
+MEM USAGE / LIMIT: khoảng 2.95GiB / 3GiB
+CPU rất cao
+```
+
+Kết luận:
+
+```text
+Cluster không sync được vì control plane thiếu tài nguyên.
+ArgoCD chỉ là nạn nhân.
+```
+
+Fix đã làm:
+
+```bash
+minikube stop
+docker update --memory 6g --memory-swap 6g minikube
+minikube start
+```
+
+Sau đó kiểm tra:
+
+```bash
+minikube status
+kubectl get --raw=/readyz?verbose
+kubectl get app -n argocd
+```
+
+Kỳ vọng:
+
+```text
+apiserver: Running
+readyz check passed
+```
+
+Ghi nhớ:
+
+```text
+Minikube 3GiB không đủ cho nhiều stack cùng lúc:
+ArgoCD + Gatekeeper + Kyverno + kube-prometheus-stack + ESO + Sigstore + app workload.
+```
+
+Nếu máy còn RAM, nên start minikube từ đầu với memory lớn hơn:
+
+```bash
+minikube start --memory=6144 --cpus=4
+```
+
+Nếu profile đã tồn tại, có thể cần:
+
+```bash
+minikube stop
+docker update --memory 6g --memory-swap 6g minikube
+minikube start
+```
+
+### 18.2 Kyverno webhook timeout chặn cả ArgoCD
+
+Lỗi đã gặp khi restart repo-server:
+
+```text
+failed calling webhook "mutate.kyverno.svc-fail"
+Post "https://kyverno-svc.kyverno.svc:443/mutate/fail?timeout=10s": context deadline exceeded
+```
+
+Ý nghĩa:
+
+```text
+Kyverno admission webhook đang timeout.
+Vì failurePolicy là Fail, Kubernetes sẽ chặn request nếu webhook không trả lời.
+```
+
+Kết quả:
+
+```text
+Không patch/restart được Deployment của ArgoCD.
+Không phải vì ArgoCD sai, mà vì admission webhook đứng giữa bị nghẽn.
+```
+
+Kiểm tra:
+
+```bash
+kubectl get pods,svc -n kyverno -o wide
+kubectl get mutatingwebhookconfiguration kyverno-resource-mutating-webhook-cfg -o yaml
+kubectl get validatingwebhookconfiguration kyverno-resource-validating-webhook-cfg -o yaml
+```
+
+Trong lab local, để gỡ kẹt tạm thời, có thể đổi `failurePolicy` sang `Ignore`.
+
+Tạo patch file:
+
+```json
+[
+  {
+    "op": "replace",
+    "path": "/webhooks/0/failurePolicy",
+    "value": "Ignore"
+  }
+]
+```
+
+Patch:
+
+```bash
+kubectl patch mutatingwebhookconfiguration kyverno-resource-mutating-webhook-cfg \
+  --type=json \
+  --patch-file .tmp-kyverno-failurepolicy-ignore.json
+```
+
+```bash
+kubectl patch validatingwebhookconfiguration kyverno-resource-validating-webhook-cfg \
+  --type=json \
+  --patch-file .tmp-kyverno-failurepolicy-ignore.json
+```
+
+Sau khi patch:
+
+```text
+Nếu Kyverno webhook timeout, Kubernetes không fail request nữa.
+Cluster được gỡ kẹt để restart ArgoCD/repo-server/policy-controller.
+```
+
+Cảnh báo:
+
+```text
+Đây là thao tác cứu cluster local lab.
+Không phải cấu hình production chuẩn.
+Production phải fix nguyên nhân Kyverno timeout, không để Ignore bừa bãi lâu dài.
+```
+
+Sau khi cluster ổn, có thể cân nhắc đưa về `Fail` nếu Kyverno khỏe:
+
+```bash
+kubectl patch mutatingwebhookconfiguration kyverno-resource-mutating-webhook-cfg \
+  --type=json \
+  -p='[{"op":"replace","path":"/webhooks/0/failurePolicy","value":"Fail"}]'
+```
+
+### 18.3 Restart ArgoCD repo-server để clear render/cache lỗi
+
+Khi ArgoCD báo:
+
+```text
+failed to generate manifest
+context deadline exceeded
+```
+
+và API server đã healthy, có thể repo-server đang kẹt cache/render Helm.
+
+Restart:
+
+```bash
+kubectl rollout restart deploy/argocd-repo-server -n argocd
+kubectl rollout status deploy/argocd-repo-server -n argocd --timeout=90s
+```
+
+Sau đó refresh app:
+
+```bash
+kubectl -n argocd annotate app root argocd.argoproj.io/refresh=hard --overwrite
+kubectl -n argocd annotate app <app-name> argocd.argoproj.io/refresh=hard --overwrite
+```
+
+Nếu restart bị chặn bởi Kyverno/Gatekeeper webhook, quay lại mục webhook timeout ở trên.
+
+### 18.4 Policy Controller CrashLoopBackOff
+
+Lỗi đã gặp:
+
+```text
+policy-controller-webhook 0/1 CrashLoopBackOff
+ClusterImagePolicy sync lỗi:
+failed calling webhook "defaulting.clusterimagepolicy.sigstore.dev"
+connect: connection refused
+```
+
+Ý nghĩa:
+
+```text
+Sigstore Policy Controller webhook chưa Ready.
+ClusterImagePolicy cần webhook này để default/validate.
+Nếu webhook chết, apply ClusterImagePolicy sẽ fail.
+```
+
+Kiểm tra:
+
+```bash
+kubectl get pods,svc -n cosign-system -o wide
+kubectl logs -n cosign-system deploy/policy-controller-webhook --tail=120
+kubectl describe pod -n cosign-system -l app.kubernetes.io/name=policy-controller
+```
+
+Fix đã làm:
+
+```bash
+kubectl rollout restart deploy/policy-controller-webhook -n cosign-system
+```
+
+Sau khi pod Healthy:
+
+```bash
+kubectl get pods -n cosign-system
+kubectl get clusterimagepolicy
+```
+
+Kỳ vọng:
+
+```text
+policy-controller-webhook 1/1 Running
+w10-api-must-be-signed tồn tại
+```
+
+Ngoài ra file ArgoCD app đã được nâng chart:
+
+```yaml
+# cloud/w10/lab/argocd/apps/policy-controller.yaml
+targetRevision: 0.10.6
+```
+
+Lý do:
+
+```text
+Dùng bản chart mới hơn để giảm lỗi runtime/webhook so với 0.10.4.
+```
+
+### 18.5 ESO OutOfSync do release name lệch
+
+Triệu chứng:
+
+```text
+eso OutOfSync
+ArgoCD muốn tạo resource tên eso-external-secrets-*
+Trong cluster lại có external-secrets-*
+```
+
+Nguyên nhân:
+
+```text
+Helm release name mặc định lấy theo tên ArgoCD app là eso.
+Nhưng release cũ/operator thật trong cluster đang tên external-secrets.
+```
+
+Fix trong `cloud/w10/lab/argocd/apps/eso.yaml`:
+
+```yaml
+helm:
+  releaseName: external-secrets
+  values: |
+    installCRDs: true
+```
+
+Ý nghĩa:
+
+```text
+ArgoCD render chart với releaseName external-secrets.
+Tên Deployment/Service/Webhook khớp resource thật trong cluster.
+Tránh tạo duplicate eso-external-secrets-*.
+```
+
+### 18.6 ESO API version `v1beta1` vs `v1`
+
+Lỗi đã gặp khi sync `eso-config`:
+
+```text
+The Kubernetes API could not find version "v1beta1"
+Version "v1" of external-secrets.io/ExternalSecret is installed
+```
+
+Ý nghĩa:
+
+```text
+CRD trong cluster chỉ serve external-secrets.io/v1.
+Manifest lại viết external-secrets.io/v1beta1.
+```
+
+Fix trong 2 file:
+
+```yaml
+# cloud/w10/lab/eso/secret-store.yaml
+apiVersion: external-secrets.io/v1
+```
+
+```yaml
+# cloud/w10/lab/eso/external-secret.yaml
+apiVersion: external-secrets.io/v1
+```
+
+Nếu chart ESO cũ vẫn chạy controller `v0.10.5`, controller có thể log:
+
+```text
+no matches for kind "ExternalSecret" in version "external-secrets.io/v1beta1"
+```
+
+Nghĩa là chart/controller quá cũ so với CRD hiện tại.
+
+Fix trong `cloud/w10/lab/argocd/apps/eso.yaml`:
+
+```yaml
+targetRevision: 1.3.2
+```
+
+Lý do:
+
+```text
+Chart 1.3.2 dùng app version v1.3.2, phù hợp API external-secrets.io/v1.
+Chart 0.10.5 quá cũ và còn phụ thuộc v1beta1 trong controller.
+```
+
+### 18.7 Vì sao sửa local chưa đủ?
+
+Root app đọc từ GitHub:
+
+```yaml
+repoURL: https://github.com/G-03-XBrain-Phase-2/thanh-aws-accelerator-p2.git
+targetRevision: main
+```
+
+Vì vậy:
+
+```text
+Sửa local chưa làm ArgoCD thấy thay đổi.
+Phải commit + push lên main.
+Nếu apply tay live object, root app có thể self-heal kéo về bản GitHub cũ.
+```
+
+Sau khi sửa file local, cần:
+
+```bash
+git add cloud/w10/lab/argocd/apps/eso.yaml
+git add cloud/w10/lab/argocd/apps/policy-controller.yaml
+git add cloud/w10/lab/eso/secret-store.yaml
+git add cloud/w10/lab/eso/external-secret.yaml
+git commit -m "fix: stabilize ESO and policy controller apps"
+git push
+```
+
+Sau đó refresh:
+
+```bash
+kubectl -n argocd annotate app root argocd.argoproj.io/refresh=hard --overwrite
+kubectl -n argocd annotate app eso argocd.argoproj.io/refresh=hard --overwrite
+kubectl -n argocd annotate app eso-config argocd.argoproj.io/refresh=hard --overwrite
+kubectl -n argocd annotate app policy-controller argocd.argoproj.io/refresh=hard --overwrite
+kubectl -n argocd annotate app supply-chain-policies argocd.argoproj.io/refresh=hard --overwrite
+```
+
+Kiểm tra:
+
+```bash
+kubectl get app -n argocd
+kubectl get pods -n external-secrets
+kubectl get secretstore,externalsecret -n demo
+kubectl get clusterimagepolicy
+```
+
+### 18.8 Checklist Debug Khi App Không Sync
+
+Thứ tự debug nên làm:
+
+```text
+1. kubectl get --raw=/readyz?verbose
+2. minikube status
+3. docker stats --no-stream minikube
+4. kubectl get pods -n argocd
+5. kubectl describe app <app> -n argocd
+6. Xem lỗi là cluster/API/webhook hay YAML thật.
+7. Nếu webhook timeout, kiểm tra namespace controller của webhook.
+8. Nếu CRD no matches, kiểm tra chart/operator đã cài trước chưa.
+9. Nếu apiVersion sai, kiểm tra kubectl api-resources hoặc CRD versions.
+10. Nếu sửa local, nhớ commit/push vì ArgoCD đọc GitHub main.
+```
+
+Các lệnh hữu ích:
+
+```bash
+kubectl describe app <app-name> -n argocd
+kubectl get crd | grep external
+kubectl get validatingwebhookconfiguration
+kubectl get mutatingwebhookconfiguration
+kubectl get pods -A
+```
+
+Kết luận incident:
+
+```text
+Lỗi lần này không phải một lỗi duy nhất.
+Nó là chuỗi lỗi:
+minikube thiếu RAM -> API server timeout -> ArgoCD cache/render lỗi -> Kyverno webhook timeout chặn patch -> policy-controller webhook chưa Ready -> ESO chart cũ không khớp CRD v1.
+```
+
+Fix đúng là đi từ nền tảng lên:
+
+```text
+Ổn định API server trước.
+Gỡ kẹt webhook timeout.
+Đảm bảo controller/webhook Healthy.
+Sau đó mới sync app và sửa manifest version.
+```
+
+---
+
+## 19. Câu Tóm Tắt Khi Phỏng Vấn
 
 W10 lab xây một mini platform production-ready bằng GitOps. RBAC giới hạn người dùng theo namespace và vai trò. Gatekeeper enforce admission policy để chặn manifest không an toàn như image latest, thiếu limits, chạy root, dùng hostNetwork. ESO đồng bộ secret từ AWS Secrets Manager về Kubernetes Secret để tránh commit secret thật và hỗ trợ rotation. CI dùng Trivy để fail image có CVE nghiêm trọng, Cosign để ký image, và Sigstore Policy Controller để admission reject image chưa ký. Cuối cùng tenant `payments` chứng minh platform có thể onboard team mới bằng namespace, RBAC, quota, network policy và kế thừa guardrail cũ mà không phải viết lại luật.
-11
