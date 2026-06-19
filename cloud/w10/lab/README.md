@@ -2198,3 +2198,4 @@ Xem diff, events, application conditions, repo path, targetRevision, và resourc
 ## 18. Câu Tóm Tắt Khi Phỏng Vấn
 
 W10 lab xây một mini platform production-ready bằng GitOps. RBAC giới hạn người dùng theo namespace và vai trò. Gatekeeper enforce admission policy để chặn manifest không an toàn như image latest, thiếu limits, chạy root, dùng hostNetwork. ESO đồng bộ secret từ AWS Secrets Manager về Kubernetes Secret để tránh commit secret thật và hỗ trợ rotation. CI dùng Trivy để fail image có CVE nghiêm trọng, Cosign để ký image, và Sigstore Policy Controller để admission reject image chưa ký. Cuối cùng tenant `payments` chứng minh platform có thể onboard team mới bằng namespace, RBAC, quota, network policy và kế thừa guardrail cũ mà không phải viết lại luật.
+11
